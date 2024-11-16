@@ -1,0 +1,18 @@
+*.so
+*.pyc
+target
+venv
+.venv
+*.so
+*.dll
+*.pyd
+/Users/francisbarker/repo/polars_extensions/examples
+__pycache__/
+*.egg-info/
+dist/
+build/
+
+# General
+.DS_Store
+.idea/
+.vscode/

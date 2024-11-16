@@ -1,0 +1,68 @@
+[package]
+name = "polars-extensions"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "pypolars"
+crate-type= ["cdylib"]
+
+[workspace]
+resolver = "2"
+members = ["src/*"]
+
+[workspace.dependencies]
+pyo3 = { version = "0.22.2", features = ["extension-module", "abi3-py38"] }
+pyo3-polars = { version = "0.17.0", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+polars = { version = "0.43.1", default-features = false }
+polars-core = {  version = "0.43.1" , features = ["rolling_window"]}
+polars-utils = "0.43.1"
+num-traits = "0.2.19"
+polars-arrow = "0.43.1"
+rand = "0.8.5"
+rand_distr = "0.4.3"
+arrow = "53.1.0"
+polars-windowing = { path = 'crates/polars-windowing' }
+polars-custom-utils = { path = 'crates/polars-custom-utils' }
+thiserror = "1.0.64"
+approx = "0.5.1"
+ndarray = "0.16.1"
+polars-ops = {  version = "0.44.0" , features = ["cum_agg"] }
+numpy = "0.22.0"
+evcxr_repl = "0.18.0"
+skiplist = "0.5.1"
+polars-plan = "0.44.2"
+
+[dependencies]
+pyo3 = { version = "0.22.2", features = ["extension-module", "abi3-py38"] }
+pyo3-polars = { version = "0.17.0", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+polars = { version = "0.43.1", default-features = true, features = ["ewma", "lazy", "rolling_window", "pct_change", "cum_agg"] }
+polars-core = { version = "0.43.1" , features = ["rolling_window"]}
+polars-utils = "0.43.1"
+num-traits = "0.2.19"
+polars-arrow = "0.43.1"
+rand = "0.8.5"
+rand_distr = "0.4.3"
+arrow = "53.1.0"
+chrono = "0.4.38"
+parquet = "53.1.0"
+polars-io = { version = "0.43.1", features = ["parquet"] }
+polars-windowing = { path = 'crates/polars-windowing' }
+thiserror = "1.0.64"
+approx = "0.5.1"
+ndarray = "0.16.1"
+polars-custom-utils = { path = 'crates/polars-custom-utils' }
+polars-ops = { version = "0.44.0", features = ["cum_agg"] }
+numpy = "0.22.0"
+evcxr_repl = "0.18.0"
+skiplist = "0.5.1"
+polars-plan = "0.44.2"
+
+# hopefully temporary until
+# https://github.com/pola-rs/pyo3-polars/pull/103 is included in
+# a release
+[patch.crates-io]
+pyo3-polars = { git = "https://github.com/pola-rs/pyo3-polars.git" }
+

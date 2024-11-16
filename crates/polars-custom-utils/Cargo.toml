@@ -1,0 +1,21 @@
+[package]
+name = "polars-custom-utils"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+pyo3 = { workspace = true }
+pyo3-polars = { workspace = true }
+serde = { workspace = true }
+polars = { workspace = true }
+polars-core = { workspace = true }
+polars-utils = { workspace = true }
+num-traits = { workspace = true }
+polars-arrow = { workspace = true }
+rand = { workspace = true }
+rand_distr = { workspace = true }
+arrow = { workspace = true }
+thiserror = { workspace = true }
+approx = { workspace = true }
+ndarray = { workspace = true }
+polars-plan = { workspace = true }

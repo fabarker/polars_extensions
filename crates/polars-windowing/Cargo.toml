@@ -1,0 +1,25 @@
+[package]
+name = "polars-windowing"
+version = "0.1.0"
+edition = "2021"  # Add this line
+
+[dependencies]
+pyo3 = { workspace = true }
+pyo3-polars = { workspace = true }
+serde = { workspace = true }
+polars = { workspace = true }
+polars-core = { workspace = true }
+polars-utils = { workspace = true }
+num-traits = { workspace = true }
+polars-arrow = { workspace = true }
+rand = { workspace = true }
+rand_distr = { workspace = true }
+arrow = { workspace = true }
+thiserror = { workspace = true }
+approx = { workspace = true }
+ndarray = { workspace = true }
+polars-ops = { workspace = true }
+num = "0.4.3"
+skiplist = { workspace = true }
+polars-custom-utils = { workspace = true }
+polars-plan = { workspace = true }

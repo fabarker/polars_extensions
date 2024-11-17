@@ -4,23 +4,28 @@ from py_polars_ext.enums.windowing import WinType, UDF
 import numpy.typing as npt
 from py_polars_ext._utils import pl_plugin
 from typing import Dict, Any, Optional, Self
+
 from enum import Enum
 
-_DROP_FIELDS = ['_expr', '_window_type', '_ignore_nans', '_center', '_window', '_symbol', '_winType']
+_DROP_FIELDS = [
+    "_expr",
+    "_window_type",
+    "_ignore_nans",
+    "_center",
+    "_window",
+    "_symbol",
+    "_winType",
+]
+
 
 class ABCWindow(ABC):
-
     @abstractmethod
     def pars(self):
         return NotImplemented
 
 
 class Window(ABCWindow):
-
-    def __init__(self,
-                 expr: pl.Expr,
-                 winType: WinType):
-
+    def __init__(self, expr: pl.Expr, winType: WinType):
         """Initialize a Rolling window computation object.
         Args:
             expr (pl.Expr): The Polars expression to perform rolling computations on.
@@ -31,7 +36,7 @@ class Window(ABCWindow):
         self._weights = None
         self._ignore_nans = False
         self._adjust = False
-        self._symbol = 'windowed_stats'
+        self._symbol = "windowed_stats"
 
     @property
     def min_periods(self) -> int:
@@ -41,6 +46,7 @@ class Window(ABCWindow):
     def pars(self):
         return NotImplemented
 
+    @abstractmethod
     def __call__(self, **kwargs):
         self.__dict__.update(kwargs)
 
@@ -49,26 +55,25 @@ class Window(ABCWindow):
 
     def kwargs(self):
         return {
-            k.lstrip('_'): v.value if isinstance(v, Enum) else v
+            k.lstrip("_"): v.value if isinstance(v, Enum) else v
             for k, v in self.__dict__.items()
             if k not in _DROP_FIELDS
-            }
+        }
 
     def __call(self, func: UDF) -> pl.Expr:
-        return pl_plugin(args=[self._expr, pl.lit(func)],
-                         symbol=self._symbol,
-                         is_elementwise=True,
-                         kwargs=self.params()
-                         )
-
+        return pl_plugin(
+            args=[self._expr, pl.lit(func)],
+            symbol=self._symbol,
+            is_elementwise=True,
+            kwargs=self.params(),
+        )
 
     def ewm(self, **kwargs):
         from py_polars_ext.ewm import ExponentialMoving
-        return ExponentialMoving(
-            window_type=self._winType,
-            expr=self._expr,
-            pars=self.pars).__call__(**kwargs | self.__dict__)
 
+        return ExponentialMoving(
+            window_type=self._winType, expr=self._expr, pars=self.pars
+        ).__call__(**kwargs | self.__dict__)
 
     def mean(self) -> pl.Expr:
         """Calculate the rolling mean (average) over the specified window.
@@ -161,9 +166,8 @@ class Window(ABCWindow):
 
 @pl.api.register_expr_namespace("sliding")
 class Sliding(Window):
-
     def __init__(self, expr: pl.Expr):
-        super(Sliding, self).__init__(expr,  WinType.ROLLING)
+        super(Sliding, self).__init__(expr, WinType.ROLLING)
 
         # Set the internal properties of an sliding window
         self._window: Optional[int] = None
@@ -177,15 +181,14 @@ class Sliding(Window):
     def center(self) -> bool:
         return self._center
 
-    def __call__(
-            self,
-            window: int,
-            min_periods: Optional[int] = None,
-            center: bool = False,
-            weights: Optional[npt.ArrayLike] = None,
-            adjust: bool = False
+    def __call__(  # type: ignore[override]
+        self,
+        window: int,
+        min_periods: Optional[int] = None,
+        center: bool = False,
+        weights: Optional[npt.ArrayLike] = None,
+        adjust: bool = False,
     ) -> Self:
-
         """Configure the rolling window parameters.
 
         Args:
@@ -211,31 +214,27 @@ class Sliding(Window):
         if min_periods is not None and min_periods > window:
             raise ValueError("min_periods cannot be larger than window")
 
-        super(Sliding, self).__call__(_window=window,
-                                      _min_periods=min_periods if min_periods else window,
-                                      _center=center,
-                                      _weights=weights,
-                                      _adjust=adjust)
+        super(Sliding, self).__call__(
+            _window=window,
+            _min_periods=min_periods if min_periods else window,
+            _center=center,
+            _weights=weights,
+            _adjust=adjust,
+        )
         return self
 
     def pars(self):
         return self.cls_pars(self.window, self.center)
 
     @staticmethod
-    def cls_pars(window: int, center:bool) -> Dict[str, Any]:
+    def cls_pars(window: int, center: bool) -> Dict[str, Any]:
         return {
-            "window_type": {
-                "Rolling": {
-                    "window": window,
-                    "center": center
-                }
-            },
+            "window_type": {"Rolling": {"window": window, "center": center}},
         }
 
 
 @pl.api.register_expr_namespace("expanding")
 class Expanding(Window):
-
     _MIN_PERIODS: int = 1
 
     def __init__(self, expr: pl.Expr):
@@ -245,19 +244,17 @@ class Expanding(Window):
         self._min_periods = Expanding._MIN_PERIODS
         self._ignore_nans = False
 
-
     @property
     def ignore_nans(self) -> bool:
         return self._ignore_nans
 
-    def __call__(
-            self,
-            min_periods: Optional[int] = 1,
-            weights: Optional[npt.ArrayLike] = None,
-            adjust: bool = False,
-            ignore_nans: bool = False,
+    def __call__(  # type: ignore[override]
+        self,
+        min_periods: Optional[int] = 1,
+        weights: Optional[npt.ArrayLike] = None,
+        adjust: bool = False,
+        ignore_nans: bool = False,
     ) -> Self:
-
         """Configure the expanding window parameters.
 
         Args:
@@ -278,10 +275,12 @@ class Expanding(Window):
             ValueError: If window size is not positive or min_periods is larger than window size.
         """
 
-        super(Expanding, self).__call__(_min_periods=min_periods,
-                                        _weights=weights,
-                                        _adjust=adjust,
-                                        _ignore_nans=ignore_nans)
+        super(Expanding, self).__call__(
+            _min_periods=min_periods,
+            _weights=weights,
+            _adjust=adjust,
+            _ignore_nans=ignore_nans,
+        )
         return self
 
     def pars(self):
@@ -290,9 +289,5 @@ class Expanding(Window):
     @staticmethod
     def cls_pars(ignore_nans: bool) -> Dict[str, Any]:
         return {
-            "window_type": {
-                "Expanding": {
-                    "ignore_nans": ignore_nans
-                }
-            },
+            "window_type": {"Expanding": {"ignore_nans": ignore_nans}},
         }

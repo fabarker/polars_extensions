@@ -9,16 +9,17 @@ _PLUGIN_PATH = Path(__file__).parent
 # FLAG FOR v1 polars
 _IS_POLARS_V1 = pl.__version__.startswith("1.")
 
+
 def pl_plugin(
-        *,
-        symbol: str,
-        args: List[Union[pl.Series, pl.Expr]],
-        kwargs: Optional[Dict[str, Any]] = None,
-        is_elementwise: bool = False,
-        returns_scalar: bool = False,
-        changes_length: bool = False,
-        cast_to_supertype: bool = False,
-        pass_name_to_apply: bool = False,
+    *,
+    symbol: str,
+    args: List[Union[pl.Series, pl.Expr]],
+    kwargs: Optional[Dict[str, Any]] = None,
+    is_elementwise: bool = False,
+    returns_scalar: bool = False,
+    changes_length: bool = False,
+    cast_to_supertype: bool = False,
+    pass_name_to_apply: bool = False,
 ) -> pl.Expr:
     return register_plugin_function(
         plugin_path=_PLUGIN_PATH,

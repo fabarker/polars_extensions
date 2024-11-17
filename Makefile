@@ -16,8 +16,8 @@ install-release: .venv
 pre-commit: .venv
 	cargo +nightly fmt --all && cargo clippy --all-features
 	.venv/bin/python -m ruff check . --fix --exit-non-zero-on-fix
-	.venv/bin/python -m ruff format polars_extensions tests
-	.venv/bin/mypy polars_extensions tests
+	.venv/bin/python -m ruff format python tests
+	.venv/bin/mypy python tests
 
 test: .venv
 	.venv/bin/python -m pytest tests

@@ -38,6 +38,7 @@ jobs:
           rustup install nightly
           rustup default nightly
           rustup component add rustfmt --toolchain nightly
+          rustup component add clippy --toolchain nightly
       - name: Check Rust toolchain
         run: rustup show
       - uses: mozilla-actions/sccache-action@v0.0.3

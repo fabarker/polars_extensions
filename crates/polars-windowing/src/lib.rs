@@ -1,44 +1,36 @@
-pub mod rolling;
 pub mod expanding;
 pub mod expr;
-use crate::{
-    expanding::{
-        ewm::{
-            mean::ewm_mean,
-            variance::ewm_var,
-            stdev::ewm_std,
-        },
-        mean::expanding_mean,
-        sum::expanding_sum,
-        stdev::expanding_std,
-        variance::expanding_var,
-        max::expanding_max,
-        min::expanding_min,
-        cagr::expanding_cagr,
-        kurtosis::expanding_kurtosis,
-        prod::expanding_prod,
-        quantile::expanding_quantile,
-        skew::expanding_skew,
-    },
-    rolling::{
-        mean::rolling_mean,
-        prod::rolling_prod,
-        sum::rolling_sum,
-        variance::rolling_var,
-        cagr::rolling_cagr,
-        stdev::rolling_std,
-        kurtosis::rolling_kurtosis,
-        quantile::rolling_quantile,
-        skew::rolling_skew,
-    },
-};
-
-use polars_custom_utils::Utils;
+pub mod rolling;
 use polars::prelude::*;
 use polars_arrow::legacy::kernels::rolling::no_nulls::QuantileInterpolOptions;
-use polars_custom_utils::utils::weights::ExponentialDecayType;
 use polars_core::prelude::{Float32Type, Float64Type};
+use polars_custom_utils::utils::weights::ExponentialDecayType;
+use polars_custom_utils::Utils;
 use serde::Deserialize;
+
+use crate::expanding::cagr::expanding_cagr;
+use crate::expanding::ewm::mean::ewm_mean;
+use crate::expanding::ewm::stdev::ewm_std;
+use crate::expanding::ewm::variance::ewm_var;
+use crate::expanding::kurtosis::expanding_kurtosis;
+use crate::expanding::max::expanding_max;
+use crate::expanding::mean::expanding_mean;
+use crate::expanding::min::expanding_min;
+use crate::expanding::prod::expanding_prod;
+use crate::expanding::quantile::expanding_quantile;
+use crate::expanding::skew::expanding_skew;
+use crate::expanding::stdev::expanding_std;
+use crate::expanding::sum::expanding_sum;
+use crate::expanding::variance::expanding_var;
+use crate::rolling::cagr::rolling_cagr;
+use crate::rolling::kurtosis::rolling_kurtosis;
+use crate::rolling::mean::rolling_mean;
+use crate::rolling::prod::rolling_prod;
+use crate::rolling::quantile::rolling_quantile;
+use crate::rolling::skew::rolling_skew;
+use crate::rolling::stdev::rolling_std;
+use crate::rolling::sum::rolling_sum;
+use crate::rolling::variance::rolling_var;
 use crate::DataType;
 
 #[derive(Deserialize, Debug, Clone)]
@@ -62,8 +54,8 @@ impl RollingExpandingType {
     pub fn get_window(&self) -> Result<usize, PolarsError> {
         match self {
             RollingExpandingType::Rolling(params) => Ok(params.window),
-            RollingExpandingType::Expanding(_) =>Err(PolarsError::ComputeError(
-                "window is only available for Rolling windows".into()
+            RollingExpandingType::Expanding(_) => Err(PolarsError::ComputeError(
+                "window is only available for Rolling windows".into(),
             )),
         }
     }
@@ -71,8 +63,8 @@ impl RollingExpandingType {
     pub fn get_center(&self) -> Result<bool, PolarsError> {
         match self {
             RollingExpandingType::Rolling(params) => Ok(params.center),
-            RollingExpandingType::Expanding(_) =>Err(PolarsError::ComputeError(
-                "center is only available for Rolling windows".into()
+            RollingExpandingType::Expanding(_) => Err(PolarsError::ComputeError(
+                "center is only available for Rolling windows".into(),
             )),
         }
     }
@@ -80,7 +72,7 @@ impl RollingExpandingType {
     pub fn get_ignore_nans(&self) -> Result<bool, PolarsError> {
         match self {
             RollingExpandingType::Rolling(_) => Err(PolarsError::ComputeError(
-                "ignore_nans is only available for Expanding windows".into()
+                "ignore_nans is only available for Expanding windows".into(),
             )),
             RollingExpandingType::Expanding(params) => Ok(params.ignore_nans),
         }
@@ -105,7 +97,6 @@ impl WindowParams {
         }
     }
 }
-
 
 #[derive(Deserialize)]
 pub struct RollingKwargs {
@@ -154,7 +145,6 @@ pub enum WindowType<'a> {
 }
 
 impl<'a> WindowType<'a> {
-
     pub fn min_periods(&self) -> usize {
         match self {
             WindowType::Rolling(rolling) => rolling.min_periods,
@@ -173,8 +163,6 @@ pub struct ExponentiallyWeighted<'a> {
 }
 
 impl<'a> ExponentiallyWeighted<'a> {
-
-
     pub fn with_adjust(mut self, adjust: bool) -> Self {
         self.adjust = adjust;
         self
@@ -189,124 +177,116 @@ impl<'a> ExponentiallyWeighted<'a> {
         match &self.window_type {
             WindowType::Expanding(expanding) => {
                 ewm_mean(
-                    expanding.series,  // or expanding.get_series() if that's a method
+                    expanding.series, // or expanding.get_series() if that's a method
                     self.decay_type.get_alpha().unwrap() as f64,
                     self.adjust,
-                    expanding.min_periods,  // or expanding.min_periods() if that's a method
-                    self.ignore_nans
+                    expanding.min_periods, // or expanding.min_periods() if that's a method
+                    self.ignore_nans,
                 )
             },
             WindowType::Rolling(rolling) => {
-                let wts = Utils::exponential_weights(
-                                            rolling.window as i32,
-                                            &self.decay_type).unwrap();
+                let wts =
+                    Utils::exponential_weights(rolling.window as i32, &self.decay_type).unwrap();
                 rolling_mean(
                     rolling.series,
                     rolling.window,
                     rolling.min_periods,
                     rolling.center,
-                    Some(wts))
-            }
+                    Some(wts),
+                )
+            },
         }
     }
 
     pub fn std(&self) -> PolarsResult<Series> {
         match &self.window_type {
-            WindowType::Expanding(expanding) => {
-                ewm_std(expanding.series,
-                        self.decay_type.get_alpha().unwrap() as f64,
-                        self.adjust,
-                        expanding.min_periods,
-                        self.ignore_nans,
-                        self.bias)
-            },
+            WindowType::Expanding(expanding) => ewm_std(
+                expanding.series,
+                self.decay_type.get_alpha().unwrap() as f64,
+                self.adjust,
+                expanding.min_periods,
+                self.ignore_nans,
+                self.bias,
+            ),
             WindowType::Rolling(rolling) => {
-                let wts = Utils::exponential_weights(
-                    rolling.window as i32,
-                    &self.decay_type).unwrap();
+                let wts =
+                    Utils::exponential_weights(rolling.window as i32, &self.decay_type).unwrap();
                 rolling_std(
                     rolling.series,
                     rolling.window,
                     rolling.min_periods,
                     rolling.center,
-                    Some(wts))
-            }
+                    Some(wts),
+                )
+            },
         }
     }
 
     pub fn var(&self) -> PolarsResult<Series> {
         match &self.window_type {
-            WindowType::Expanding(expanding) => {
-                ewm_var(expanding.series,
-                        self.decay_type.get_alpha().unwrap() as f64,
-                        self.adjust,
-                        expanding.min_periods,
-                        self.ignore_nans,
-                        self.bias)
-            },
+            WindowType::Expanding(expanding) => ewm_var(
+                expanding.series,
+                self.decay_type.get_alpha().unwrap() as f64,
+                self.adjust,
+                expanding.min_periods,
+                self.ignore_nans,
+                self.bias,
+            ),
             WindowType::Rolling(rolling) => {
-                let wts = Utils::exponential_weights(
-                    rolling.window as i32,
-                    &self.decay_type).unwrap();
+                let wts =
+                    Utils::exponential_weights(rolling.window as i32, &self.decay_type).unwrap();
                 rolling_var(
                     rolling.series,
                     rolling.window,
                     rolling.min_periods,
                     rolling.center,
-                    Some(wts))
-            }
+                    Some(wts),
+                )
+            },
         }
     }
 
     pub fn prod(&self) -> PolarsResult<Series> {
         match &self.window_type {
             WindowType::Expanding(expanding) => {
-                let wts = Utils::exponential_weights(
-                    expanding.series.len() as i32,
-                    &self.decay_type).unwrap();
-                expanding_prod(
-                    expanding.series,
-                    expanding.min_periods,
-                    Some(wts))
-
+                let wts =
+                    Utils::exponential_weights(expanding.series.len() as i32, &self.decay_type)
+                        .unwrap();
+                expanding_prod(expanding.series, expanding.min_periods, Some(wts))
             },
             WindowType::Rolling(rolling) => {
-                let wts = Utils::exponential_weights(
-                    rolling.window as i32,
-                    &self.decay_type).unwrap();
+                let wts =
+                    Utils::exponential_weights(rolling.window as i32, &self.decay_type).unwrap();
                 rolling_prod(
                     rolling.series,
                     rolling.window,
                     rolling.min_periods,
                     rolling.center,
-                    Some(wts))
-            }
+                    Some(wts),
+                )
+            },
         }
     }
 
     pub fn cagr(&self) -> PolarsResult<Series> {
         match &self.window_type {
             WindowType::Expanding(expanding) => {
-                let wts = Utils::exponential_weights(
-                    expanding.series.len() as i32,
-                    &self.decay_type).unwrap();
-                expanding_cagr(
-                    expanding.series,
-                    expanding.min_periods,
-                    Some(wts))
-
+                let wts =
+                    Utils::exponential_weights(expanding.series.len() as i32, &self.decay_type)
+                        .unwrap();
+                expanding_cagr(expanding.series, expanding.min_periods, Some(wts))
             },
             WindowType::Rolling(rolling) => {
-                let wts = Utils::exponential_weights(
-                    rolling.window as i32,
-                    &self.decay_type).unwrap();
+                let wts =
+                    Utils::exponential_weights(rolling.window as i32, &self.decay_type).unwrap();
                 rolling_cagr(
                     rolling.series,
                     rolling.window,
                     rolling.min_periods,
                     rolling.center,
-                    Some(wts))
-            }
+                    Some(wts),
+                )
+            },
         }
     }
 }
@@ -320,7 +300,7 @@ pub struct Expanding<'a> {
     weights: Option<Vec<f64>>,
 }
 
-impl <'a> Expanding<'a> {
+impl<'a> Expanding<'a> {
     fn new(series: &'a Series, min_periods: usize) -> Self {
         Self {
             series,
@@ -362,76 +342,59 @@ impl <'a> Expanding<'a> {
     }
 
     pub fn sum(&self) -> PolarsResult<Series> {
-        expanding_sum(
-            self.series,
-            self.min_periods,
-            self.weights.clone())
+        expanding_sum(self.series, self.min_periods, self.weights.clone())
     }
 
     pub fn mean(&self) -> PolarsResult<Series> {
-        expanding_mean(
-            self.series,
-            self.min_periods,
-            self.weights.clone())
+        expanding_mean(self.series, self.min_periods, self.weights.clone())
     }
 
     pub fn std(&self) -> PolarsResult<Series> {
-        expanding_std(
-            self.series,
-            self.min_periods,
-            self.weights.clone())
+        expanding_std(self.series, self.min_periods, self.weights.clone())
     }
 
     pub fn var(&self) -> PolarsResult<Series> {
-        expanding_var(
-            self.series,
-            self.min_periods,
-            self.weights.clone())
+        expanding_var(self.series, self.min_periods, self.weights.clone())
     }
 
     pub fn kurt(&self) -> PolarsResult<Series> {
-        expanding_kurtosis(
-            self.series,
-            self.min_periods)
+        expanding_kurtosis(self.series, self.min_periods)
     }
 
     pub fn skew(&self) -> PolarsResult<Series> {
-        expanding_skew(
-            self.series,
-            self.min_periods)
+        expanding_skew(self.series, self.min_periods)
     }
 
     pub fn min(&self) -> PolarsResult<Series> {
-        expanding_min(self.series,
-                      self.min_periods)
+        expanding_min(self.series, self.min_periods)
     }
 
     pub fn max(&self) -> PolarsResult<Series> {
-        expanding_max(self.series,
-                      self.min_periods)
+        expanding_max(self.series, self.min_periods)
     }
 
     pub fn quantile(&self, quantile: f64) -> PolarsResult<Series> {
-        expanding_quantile(self.series,
-                          quantile,
-                          self.min_periods,
-                          QuantileInterpolOptions::Linear)
+        expanding_quantile(
+            self.series,
+            quantile,
+            self.min_periods,
+            QuantileInterpolOptions::Linear,
+        )
     }
 
     pub fn cagr(&self) -> PolarsResult<Series> {
-        expanding_cagr(self.series,
-                       self.min_periods,
-                       self.weights.clone())
+        expanding_cagr(self.series, self.min_periods, self.weights.clone())
     }
 
     pub fn median(&self) -> PolarsResult<Series> {
-        expanding_quantile(self.series,
-                           0.5,
-                           self.min_periods,
-                           QuantileInterpolOptions::Linear)
+        expanding_quantile(
+            self.series,
+            0.5,
+            self.min_periods,
+            QuantileInterpolOptions::Linear,
+        )
     }
 }
-
 
 #[derive(Debug)]
 pub struct Rolling<'a> {
@@ -481,7 +444,7 @@ impl<'a> Rolling<'a> {
 
     pub(self) fn get_options(&self) -> RollingOptionsFixedWindow {
         RollingOptionsFixedWindow {
-            window_size: self.window,  // note: use self not Self
+            window_size: self.window, // note: use self not Self
             min_periods: self.min_periods,
             weights: self.weights.clone(),
             center: self.center,
@@ -504,7 +467,6 @@ impl<'a> Rolling<'a> {
         self
     }
 
-
     pub fn with_weights(mut self, weights: Option<Vec<f64>>) -> Self {
         self.weights = weights;
         self
@@ -516,7 +478,8 @@ impl<'a> Rolling<'a> {
             self.window,
             self.min_periods,
             self.center,
-            self.weights.clone())
+            self.weights.clone(),
+        )
     }
 
     pub fn prod(&self) -> PolarsResult<Series> {
@@ -525,7 +488,8 @@ impl<'a> Rolling<'a> {
             self.window,
             self.min_periods,
             self.center,
-            self.weights.clone())
+            self.weights.clone(),
+        )
     }
 
     pub fn mean(&self) -> PolarsResult<Series> {
@@ -534,7 +498,8 @@ impl<'a> Rolling<'a> {
             self.window,
             self.min_periods,
             self.center,
-            self.weights.clone())
+            self.weights.clone(),
+        )
     }
 
     pub fn var(&self) -> PolarsResult<Series> {
@@ -543,7 +508,8 @@ impl<'a> Rolling<'a> {
             self.window,
             self.min_periods,
             self.center,
-            self.weights.clone())
+            self.weights.clone(),
+        )
     }
 
     pub fn std(&self) -> PolarsResult<Series> {
@@ -552,11 +518,11 @@ impl<'a> Rolling<'a> {
             self.window,
             self.min_periods,
             self.center,
-            self.weights.clone())
+            self.weights.clone(),
+        )
     }
 
     pub fn quantile(&self, quantile: f64) -> PolarsResult<Series> {
-
         let params = RollingQuantileParams {
             interpol: QuantileInterpolOptions::Linear,
             prob: quantile,
@@ -580,19 +546,11 @@ impl<'a> Rolling<'a> {
     }
 
     pub fn skew(&self) -> PolarsResult<Series> {
-        rolling_skew(
-            self.series,
-            self.window,
-            self.min_periods,
-            self.center)
+        rolling_skew(self.series, self.window, self.min_periods, self.center)
     }
 
     pub fn kurt(&self) -> PolarsResult<Series> {
-        rolling_kurtosis(
-            self.series,
-            self.window,
-            self.min_periods,
-            self.center)
+        rolling_kurtosis(self.series, self.window, self.min_periods, self.center)
     }
 
     pub fn cagr(&self) -> PolarsResult<Series> {
@@ -601,9 +559,9 @@ impl<'a> Rolling<'a> {
             self.window,
             self.min_periods,
             self.center,
-            self.weights.clone())
+            self.weights.clone(),
+        )
     }
-
 }
 
 // Define trait to add .rolling() method to Series

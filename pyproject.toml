@@ -21,3 +21,7 @@ ignore_missing_imports = true
 
 [tool.poetry]
 include = ["py_polars_ext/py.typed"]
+
+[tool.dependencies]
+ruff = "*"
+pytest = "*"

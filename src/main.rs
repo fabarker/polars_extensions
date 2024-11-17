@@ -1,22 +1,17 @@
-use polars_core::prelude::*;
-use polars::prelude::{DataFrame};
-use polars::prelude::SerReader;
-use polars::prelude::*;
-use polars_windowing::expr::MyCustomTrait;
-use polars_custom_utils::Utils;
-use polars_custom_utils::utils::weights::ExponentialDecayType;
-use polars_windowing::{RollingKwargs, SeriesRollingExt, WindowParams, RollingExpandingType, RollingParams, Expanding, ExpandingParams};
+use polars::prelude::{DataFrame, SerReader, *};
 use polars_arrow::legacy::kernels::rolling::no_nulls::QuantileInterpolOptions;
 use polars_arrow::legacy::kernels::rolling::RollingQuantileParams;
-use serde::Deserialize;
-
-mod ewm;
+use polars_core::prelude::*;
+use polars_custom_utils::utils::weights::ExponentialDecayType;
+use polars_windowing::expr::MyCustomTrait;
+use polars_windowing::{ExpandingParams, RollingExpandingType, SeriesRollingExt, WindowParams};
 
 fn load_returns() -> PolarsResult<DataFrame> {
-
     let df = CsvReadOptions::default()
         .with_has_header(true)
-        .try_into_reader_with_file_path(Some("/Users/francisbarker/Desktop/PUT_History.csv".into()))?
+        .try_into_reader_with_file_path(Some(
+            "/Users/francisbarker/Desktop/PUT_History.csv".into(),
+        ))?
         .finish();
 
     df
@@ -29,9 +24,7 @@ fn parquet_polars() -> PolarsResult<DataFrame> {
     Ok(df)
 }
 
-
 fn main() -> PolarsResult<()> {
-
     let mut ts = load_returns()?;
     let puts = Series::new("symbol".into(), vec!["PUT"; ts.height()]);
     let ts = ts.with_column(puts)?;
@@ -44,16 +37,12 @@ fn main() -> PolarsResult<()> {
         min_periods: 1,
         weights: None,
         adjust: false,
-        window_type: RollingExpandingType::Expanding(ExpandingParams {
-            ignore_nans: false,
-        })
+        window_type: RollingExpandingType::Expanding(ExpandingParams { ignore_nans: false }),
+        bias: None,
     };
 
     let res = ts.column("asset_returns")?.clone();
     let binding = [res];
-    let r = ewm::exp_wt_mean_p(&binding, kw, "mean")?;
-    dbg!(&r);
-
 
     let params = RollingQuantileParams {
         interpol: QuantileInterpolOptions::Linear,
@@ -68,16 +57,15 @@ fn main() -> PolarsResult<()> {
         fn_params: Some(Arc::new(params)),
     };
 
-    let s =  ts.column("asset_returns")?.rolling(252).quantile(0.5)?;
+    let s = ts.column("asset_returns")?.rolling(252).quantile(0.5)?;
     dbg!(&s);
 
     //let s = ts.column("asset_returns")?.rolling_quantile(opts)?;
 
-
     //let decay = ExponentialDecayType::HalfLife(126.0);
     //let wts = Utils::exponential_weights(504, &decay).unwrap();
 
-   //dbg!(&wts);
+    //dbg!(&wts);
     let opts = RollingOptionsFixedWindow {
         window_size: 504,
         min_periods: 504,
@@ -86,23 +74,25 @@ fn main() -> PolarsResult<()> {
         fn_params: None,
     };
 
-
-    let lagged = ts.clone().lazy()
+    let lagged = ts
+        .clone()
+        .lazy()
         .with_columns([col("asset_returns")
             .shift(lit(20))
             .over([col("symbol")])
-            .alias("lagged_asset_returns")]).collect()?;
+            .alias("lagged_asset_returns")])
+        .collect()?;
     dbg!(&lagged);
 
-    let mom = lagged.lazy()
+    let mom = lagged
+        .lazy()
         .with_columns([col("lagged_asset_returns")
             .fill_null(0)
             .rolling_cagr(opts)
             .over([col("symbol")])
-            .alias("mom_score")]).collect()?;
+            .alias("mom_score")])
+        .collect()?;
     dbg!(&mom);
-
-
 
     //let duration = start.elapsed();
 

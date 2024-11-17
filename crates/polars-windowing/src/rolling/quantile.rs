@@ -1,10 +1,12 @@
 use std::sync::Arc;
+
 use polars::prelude::PolarsResult;
-use skiplist::OrderedSkipList;
 use polars_arrow::legacy::kernels::rolling::no_nulls::QuantileInterpolOptions;
 use polars_arrow::legacy::prelude::RollingQuantileParams;
 use polars_core::prelude::{NamedFrom, RollingOptionsFixedWindow, Series};
-use crate::rolling::skew::{get_window_bounds};
+use skiplist::OrderedSkipList;
+
+use crate::rolling::skew::get_window_bounds;
 
 pub fn rolling_quantile(
     input: &Series,
@@ -14,7 +16,6 @@ pub fn rolling_quantile(
     center: bool,
     interpolation: QuantileInterpolOptions,
 ) -> PolarsResult<Series> {
-
     let x = input.len() as i64;
 
     if x == 0 {
@@ -22,37 +23,35 @@ pub fn rolling_quantile(
     }
 
     let (start, end) = get_window_bounds(
-        window_size as i64,             // window_size
-        x,                              // num_values
-        Some(center),                   // center
-        Some("right"),                  // closed
-        Some(1),                        // step
+        window_size as i64, // window_size
+        x,                  // num_values
+        Some(center),       // center
+        Some("right"),      // closed
+        Some(1),            // step
     );
 
     let values: &[f64] = input.f64()?.cont_slice()?;
-    let result = roll_quantile(values,
-                                         &start,
-                                         &end,
-                                         min_periods as i64,
-                                         quantile,
-                                         interpolation);
+    let result = roll_quantile(
+        values,
+        &start,
+        &end,
+        min_periods as i64,
+        quantile,
+        interpolation,
+    );
 
     let series = Series::new("name_of_series".into(), result);
     Ok(series.into())
 }
 
 #[inline]
-fn is_monotonic_increasing_start_end_bounds(
-    start: &[i64],
-    end: &[i64],
-) -> bool {
-
+fn is_monotonic_increasing_start_end_bounds(start: &[i64], end: &[i64]) -> bool {
     if start.len() <= 1 {
         return true;
     }
 
     for i in 1..start.len() {
-        if start[i] < start[i-1] || end[i] < end[i-1] {
+        if start[i] < start[i - 1] || end[i] < end[i - 1] {
             return false;
         }
     }
@@ -67,7 +66,6 @@ pub fn roll_quantile(
     quantile: f64,
     interpolation: QuantileInterpolOptions,
 ) -> Vec<f64> {
-
     if !(0.0..=1.0).contains(&quantile) {
         panic!("quantile value {} not in [0, 1]", quantile);
     }
@@ -120,11 +118,7 @@ pub fn roll_quantile(
             let idx = idx_with_fraction.floor() as usize;
 
             // Helper function to get value at index
-            let get_value = |idx: usize| -> Option<f64> {
-                skiplist.iter()
-                    .nth(idx)
-                    .copied()
-            };
+            let get_value = |idx: usize| -> Option<f64> { skiplist.iter().nth(idx).copied() };
 
             if (idx_with_fraction - idx as f64).abs() < f64::EPSILON {
                 // No interpolation needed
@@ -138,13 +132,13 @@ pub fn roll_quantile(
                     let v_high = get_value(idx + 1).unwrap_or(f64::NAN);
                     let fraction = idx_with_fraction - idx as f64;
                     output[i] = v_low + (v_high - v_low) * fraction;
-                }
+                },
                 QuantileInterpolOptions::Lower => {
                     output[i] = get_value(idx).unwrap_or(f64::NAN);
-                }
+                },
                 QuantileInterpolOptions::Higher => {
                     output[i] = get_value(idx + 1).unwrap_or(f64::NAN);
-                }
+                },
                 QuantileInterpolOptions::Nearest => {
                     let fraction = idx_with_fraction - idx as f64;
                     if fraction == 0.5 {
@@ -158,12 +152,12 @@ pub fn roll_quantile(
                     } else {
                         output[i] = get_value(idx + 1).unwrap_or(f64::NAN);
                     }
-                }
+                },
                 QuantileInterpolOptions::Midpoint => {
                     let v_low = get_value(idx).unwrap_or(f64::NAN);
                     let v_high = get_value(idx + 1).unwrap_or(f64::NAN);
                     output[i] = (v_low + v_high) / 2.0;
-                }
+                },
             }
         }
     }
@@ -190,7 +184,7 @@ mod tests {
             &end,
             min_periods,
             quantile,
-            QuantileInterpolOptions::Linear
+            QuantileInterpolOptions::Linear,
         );
 
         // Add assertions based on expected results

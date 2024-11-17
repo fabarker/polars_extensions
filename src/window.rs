@@ -1,14 +1,11 @@
 #![allow(clippy::unused_unit)]
 use polars::prelude::*;
+use polars_custom_utils::utils::weights::ExponentialDecayType;
+pub use polars_windowing::{
+    Expanding, ExpandingKwargs, ExponentiallyWeighted, Rolling, RollingKwargs, WindowParams,
+};
 use pyo3::prelude::*;
 use pyo3_polars::derive::polars_expr;
-pub use polars_windowing::{Expanding,
-                           Rolling,
-                           WindowParams,
-                           ExponentiallyWeighted,
-                           ExpandingKwargs,
-                           RollingKwargs};
-use polars_custom_utils::utils::weights::ExponentialDecayType;
 
 fn output_mapper(input_fields: &[Field]) -> PolarsResult<Field> {
     FieldsMapper::new(input_fields).map_to_float_dtype()
@@ -17,11 +14,10 @@ fn output_mapper(input_fields: &[Field]) -> PolarsResult<Field> {
 #[derive(Debug)]
 pub enum WindowType<'a> {
     Expanding(Expanding<'a>),
-    Rolling(Rolling<'a>)
+    Rolling(Rolling<'a>),
 }
 
-impl<'a>WindowType<'a>  {
-
+impl<'a> WindowType<'a> {
     pub fn sum(&self) -> PolarsResult<Series> {
         match self {
             WindowType::Rolling(r) => r.sum(),
@@ -101,7 +97,11 @@ impl<'a>WindowType<'a>  {
         }
     }
 
-    pub fn ewm(self, decay_type: ExponentialDecayType, bias: bool) -> PolarsResult<ExponentiallyWeighted<'a>> {
+    pub fn ewm(
+        self,
+        decay_type: ExponentialDecayType,
+        bias: bool,
+    ) -> PolarsResult<ExponentiallyWeighted<'a>> {
         match self {
             WindowType::Rolling(r) => Ok(r.ewm(decay_type, bias)),
             WindowType::Expanding(e) => Ok(e.ewm(decay_type, bias)),
@@ -109,28 +109,24 @@ impl<'a>WindowType<'a>  {
     }
 }
 
-fn initialize_window(
-    inputs: &Series,
-    kwargs: WindowParams)
-    -> PolarsResult<WindowType> {
-
+fn initialize_window(inputs: &Series, kwargs: WindowParams) -> PolarsResult<WindowType> {
     match kwargs.get_win_type() {
-        "expanding" => Ok(WindowType::Expanding(
-            Expanding::from_kwargs(&inputs, ExpandingKwargs::from_kwargs(&kwargs))
-        )),
-        "rolling" => Ok(WindowType::Rolling(
-            Rolling::from_kwargs(&inputs, RollingKwargs::from_kwargs(&kwargs))
-        )),
+        "expanding" => Ok(WindowType::Expanding(Expanding::from_kwargs(
+            &inputs,
+            ExpandingKwargs::from_kwargs(&kwargs),
+        ))),
+        "rolling" => Ok(WindowType::Rolling(Rolling::from_kwargs(
+            &inputs,
+            RollingKwargs::from_kwargs(&kwargs),
+        ))),
         win_type => Err(PolarsError::ComputeError(
-            format!("Unknown window type: {}", win_type).into()
-        ))
+            format!("Unknown window type: {}", win_type).into(),
+        )),
     }
 }
 
 #[polars_expr(output_type_func=output_mapper)]
-pub fn windowed_stats(
-    inputs: &[Series],
-    kwargs: WindowParams) -> PolarsResult<Series> {
+pub fn windowed_stats(inputs: &[Series], kwargs: WindowParams) -> PolarsResult<Series> {
     let win = initialize_window(&inputs[0], kwargs)?;
     let result = match inputs[1].str_value(0)?.as_ref() {
         "mean" => win.mean(),
@@ -142,33 +138,33 @@ pub fn windowed_stats(
         "max" => win.max(),
         "median" => win.median(),
         other => Err(PolarsError::ComputeError(
-            format!("Unknown function: {}", other).into()
-        ))
+            format!("Unknown function: {}", other).into(),
+        )),
     };
     result
 }
 
 fn initialize_window_ewm(
     inputs: &Series,
-    kwargs: WindowParams)
-    -> PolarsResult<ExponentiallyWeighted> {
-
+    kwargs: WindowParams,
+) -> PolarsResult<ExponentiallyWeighted> {
     match kwargs.get_win_type() {
-        "expanding" => Ok(Expanding::from_kwargs(&inputs, ExpandingKwargs::from_kwargs(&kwargs))
-            .ewm(kwargs.decay.unwrap(), kwargs.bias.unwrap_or(false))),
-        "rolling" => Ok(Rolling::from_kwargs(&inputs, RollingKwargs::from_kwargs(&kwargs))
-            .ewm(kwargs.decay.unwrap(), kwargs.bias.unwrap_or(false))),
+        "expanding" => Ok(
+            Expanding::from_kwargs(&inputs, ExpandingKwargs::from_kwargs(&kwargs))
+                .ewm(kwargs.decay.unwrap(), kwargs.bias.unwrap_or(false)),
+        ),
+        "rolling" => Ok(
+            Rolling::from_kwargs(&inputs, RollingKwargs::from_kwargs(&kwargs))
+                .ewm(kwargs.decay.unwrap(), kwargs.bias.unwrap_or(false)),
+        ),
         win_type => Err(PolarsError::ComputeError(
-            format!("Unknown window type: {}", win_type).into()
-        ))
+            format!("Unknown window type: {}", win_type).into(),
+        )),
     }
 }
 
 #[polars_expr(output_type_func=output_mapper)]
-pub fn exponentially_weighted(
-    inputs: &[Series],
-    kwargs: WindowParams) -> PolarsResult<Series> {
-
+pub fn exponentially_weighted(inputs: &[Series], kwargs: WindowParams) -> PolarsResult<Series> {
     let ewm = initialize_window(&inputs[0], kwargs.clone())?
         .ewm(kwargs.decay.unwrap(), kwargs.bias.unwrap_or(false))?;
     let result = match inputs[1].str_value(0)?.as_ref() {
@@ -178,8 +174,8 @@ pub fn exponentially_weighted(
         "prod" => ewm.prod(),
         "cgr" => ewm.cagr(),
         other => Err(PolarsError::ComputeError(
-            format!("Unknown function: {}", other).into()
-        ))
+            format!("Unknown function: {}", other).into(),
+        )),
     };
     result
 }

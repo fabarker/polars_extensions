@@ -1,8 +1,6 @@
 use polars::prelude::*;
 
-pub fn expanding_max(series: &Series,
-                     min_periods: usize) -> PolarsResult<Series> {
-
+pub fn expanding_max(series: &Series, min_periods: usize) -> PolarsResult<Series> {
     // Cast to Float64 ChunkedArray
     let arr = series.f64()?;
     let len = arr.len();
@@ -16,11 +14,7 @@ pub fn expanding_max(series: &Series,
             result.push(Some(current_max));
         } else {
             // If we encounter a null value, keep the previous max
-            result.push(if idx > 0 {
-                Some(current_max)
-            } else {
-                None
-            });
+            result.push(if idx > 0 { Some(current_max) } else { None });
         }
 
         if idx < (min_periods - 1) {

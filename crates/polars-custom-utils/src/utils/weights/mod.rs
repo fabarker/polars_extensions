@@ -1,16 +1,17 @@
-use ndarray::{Array1, s};
+use ndarray::{s, Array1};
 use pyo3::{pyfunction, PyResult};
-use thiserror::Error;
 use serde::Deserialize;
+use thiserror::Error;
+
 use crate::Utils;
 
 #[derive(Debug, Copy, Clone, Deserialize)]
 #[serde(from = "(String, f32)")]
 pub enum ExponentialDecayType {
     HalfLife(f32),
-    Com(f32),      // Center of mass
-    Alpha(f32),    // Smoothing factor
-    Span(f32),     // Span size
+    Com(f32),   // Center of mass
+    Alpha(f32), // Smoothing factor
+    Span(f32),  // Span size
 }
 
 impl From<(String, f32)> for ExponentialDecayType {
@@ -30,22 +31,18 @@ impl ExponentialDecayType {
     pub fn get_alpha(&self) -> Result<f32, ExpWeightsError> {
         match self {
             ExponentialDecayType::Alpha(alpha) => Ok(*alpha),
-            ExponentialDecayType::HalfLife(hl) => Ok(1.0-f32::exp(-f32::ln(2.0) / *hl)),
-            ExponentialDecayType::Span(s) => Ok(2.0/(1.0+*s)),
-            ExponentialDecayType::Com(com) => Ok(1.0/(1.0+*com)),
+            ExponentialDecayType::HalfLife(hl) => Ok(1.0 - f32::exp(-f32::ln(2.0) / *hl)),
+            ExponentialDecayType::Span(s) => Ok(2.0 / (1.0 + *s)),
+            ExponentialDecayType::Com(com) => Ok(1.0 / (1.0 + *com)),
         }
     }
     pub fn get_half_life(&self) -> Result<f32, ExpWeightsError> {
         match self {
             ExponentialDecayType::HalfLife(hl) => Ok(*hl),
 
-            ExponentialDecayType::Com(com) => {
-                Ok(f32::ln(2.0) / -f32::ln(*com / (1.0 + *com)))
-            },
+            ExponentialDecayType::Com(com) => Ok(f32::ln(2.0) / -f32::ln(*com / (1.0 + *com))),
 
-            ExponentialDecayType::Alpha(alpha) => {
-                Ok(-f32::ln(2.0) / f32::ln(1.0-*alpha))
-            },
+            ExponentialDecayType::Alpha(alpha) => Ok(-f32::ln(2.0) / f32::ln(1.0 - *alpha)),
 
             ExponentialDecayType::Span(span) => {
                 Ok(f32::ln(2.0) / (f32::ln(*span + 1.0) - f32::ln(*span - 1.0)))
@@ -100,7 +97,6 @@ pub enum ExpWeightsError {
 /// assert_eq!(weights.len(), 5);
 /// ```
 
-
 pub fn exp_weights(window: i32, half_life: Option<f32>) -> Result<Vec<f64>, ExpWeightsError> {
     // Validate window
     if window <= 0 {
@@ -117,8 +113,8 @@ pub fn exp_weights(window: i32, half_life: Option<f32>) -> Result<Vec<f64>, ExpW
     let decay = std::f64::consts::LN_2 / half_life as f64;
 
     // Create array of indices and calculate weights
-    let weights: Array1<f64> = Array1::linspace(0., (window - 1) as f64, window as usize)
-        .map(|x| (-decay * x).exp());
+    let weights: Array1<f64> =
+        Array1::linspace(0., (window - 1) as f64, window as usize).map(|x| (-decay * x).exp());
 
     // Reverse the array to match Python's [::-1] behavior
     Ok(weights.slice(s![..;-1]).to_owned().to_vec())
@@ -126,8 +122,9 @@ pub fn exp_weights(window: i32, half_life: Option<f32>) -> Result<Vec<f64>, ExpW
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use approx::assert_relative_eq;
+
+    use super::*;
 
     #[test]
     fn test_exp_weights_basic() {
@@ -139,7 +136,7 @@ mod tests {
 
         // Each subsequent weight should be smaller
         for i in 1..weights.len() {
-            assert!(weights[i] > weights[i-1]);
+            assert!(weights[i] > weights[i - 1]);
         }
     }
 

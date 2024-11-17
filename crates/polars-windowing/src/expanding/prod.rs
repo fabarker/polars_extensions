@@ -1,30 +1,29 @@
-use super::*;
-use std::ops::{Mul, Div};
+use std::ops::{Div, Mul};
+
 use polars::prelude::series::AsSeries;
-use crate::with_match_physical_float_polars_type;
-use crate::DataType;
+
+use super::*;
+use crate::{with_match_physical_float_polars_type, DataType};
 
 pub fn expanding_prod(
     input: &Series,
     min_periods: usize,
     weights: Option<Vec<f64>>,
 ) -> PolarsResult<Series> {
-
     let s = input.as_series().clone();
     with_match_physical_float_polars_type!(
-        input.dtype(),
-        |T U| {
-            let ca: &ChunkedArray<U> = s.as_ref().as_ref().as_ref();
-            expanding_aggregator::<ProdWindow<T>, T, U>(
-            ca,
-            min_periods,
-            weights)
-            }
-        )
+    input.dtype(),
+    |T U| {
+        let ca: &ChunkedArray<U> = s.as_ref().as_ref().as_ref();
+        expanding_aggregator::<ProdWindow<T>, T, U>(
+        ca,
+        min_periods,
+        weights)
+        }
+    )
 }
 
-
-impl<'a, T: NativeType + IsFloat + Mul<Output = T> + Div<Output = T>>ProdWindow<'a, T> {
+impl<'a, T: NativeType + IsFloat + Mul<Output = T> + Div<Output = T>> ProdWindow<'a, T> {
     // compute sum from the entire window
     unsafe fn compute_prod_and_null_count(&mut self, start: usize, end: usize) -> Option<T> {
         let mut prod = None;
@@ -47,15 +46,10 @@ impl<'a, T: NativeType + IsFloat + Mul<Output = T> + Div<Output = T>>ProdWindow<
     }
 }
 
-impl<'a, T: NativeType + IsFloat + Mul<Output = T> + Div<Output = T> + iter::Product> ExpandingAggWindow<'a, T>
-for ProdWindow<'a, T>
+impl<'a, T: NativeType + IsFloat + Mul<Output = T> + Div<Output = T> + iter::Product>
+    ExpandingAggWindow<'a, T> for ProdWindow<'a, T>
 {
-    unsafe fn new(
-        slice: &'a [T],
-        validity: Option<&'a Bitmap>,
-        start: usize,
-        end: usize,
-    ) -> Self {
+    unsafe fn new(slice: &'a [T], validity: Option<&'a Bitmap>, start: usize, end: usize) -> Self {
         let mut out = Self {
             slice,
             validity,
@@ -102,12 +96,13 @@ for ProdWindow<'a, T>
 
         // we traverse all values and compute
         if recompute_prod {
-            self.prod = Some(self
-                .slice
-                .get_unchecked(start..end)
-                .iter()
-                .copied()
-                .product::<T>());
+            self.prod = Some(
+                self.slice
+                    .get_unchecked(start..end)
+                    .iter()
+                    .copied()
+                    .product::<T>(),
+            );
         }
         // remove leaving values.
         else {
@@ -186,5 +181,4 @@ for ProdWindow<'a, T>
     fn window_type() -> &'static str {
         "prod"
     }
-
 }

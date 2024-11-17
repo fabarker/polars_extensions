@@ -1,11 +1,13 @@
 use std::ops::{Add, Sub};
+
 use num_traits::Num;
 use polars_arrow::array::{ArrayRef, PrimitiveArray};
 use polars_arrow::bitmap::{Bitmap, MutableBitmap};
-use polars_arrow::types::NativeType;
-use crate::rolling::{End, Idx, Len, Start, WindowSize};
 use polars_arrow::legacy::utils::CustomIterTools;
+use polars_arrow::types::NativeType;
+
 use super::*;
+use crate::rolling::{End, Idx, Len, Start, WindowSize};
 
 pub fn rolling_aggregator_nulls<'a, Agg, T>(
     values: &'a [T],
@@ -19,7 +21,6 @@ where
     Agg: RollingAggWindow<'a, T>,
     T: NativeType + Num + PartialOrd + Add<Output = T> + Sub<Output = T>,
 {
-
     if weights.is_some() {
         panic!("weights not yet supported on array with null values")
     }

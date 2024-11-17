@@ -1,30 +1,32 @@
 use std::fmt::Debug;
 use std::iter;
-use polars_arrow::bitmap::{Bitmap, MutableBitmap};
-use polars_core::series::Series;
-use std::ops::{AddAssign, SubAssign, DivAssign, MulAssign};
-use num_traits::{NumCast, Num};
-use polars_utils::float::IsFloat;
-use polars::prelude::{PolarsResult};
-use polars_arrow::types::NativeType;
-use polars_core::datatypes::PolarsNumericType;
-use polars_core::datatypes::DataType::{Float64, Float32};
-use polars_core::prelude::ChunkedArray;
+use std::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
+
+use num_traits::{Num, NumCast};
 use polars::datatypes::{Float32Type, Float64Type};
+use polars::prelude::PolarsResult;
+use polars_arrow::bitmap::{Bitmap, MutableBitmap};
+use polars_arrow::types::NativeType;
+use polars_core::datatypes::DataType::{Float32, Float64};
+use polars_core::datatypes::PolarsNumericType;
+use polars_core::prelude::ChunkedArray;
+use polars_core::series::Series;
+use polars_utils::float::IsFloat;
+
 use crate::rolling::no_nulls::rolling_aggregator_no_nulls;
 use crate::rolling::nulls::rolling_aggregator_nulls;
 
+pub mod cagr;
+pub mod kurtosis;
+pub mod mean;
 pub mod no_nulls;
 pub mod nulls;
-pub mod sum;
 pub mod prod;
-pub mod mean;
-pub mod variance;
-pub mod stdev;
-pub mod skew;
-pub mod kurtosis;
 pub mod quantile;
-pub mod cagr;
+pub mod skew;
+pub mod stdev;
+pub mod sum;
+pub mod variance;
 type Start = usize;
 type End = usize;
 type Idx = usize;
@@ -38,7 +40,6 @@ pub struct RollingOptions {
     pub centred: bool,
     pub weights: Option<Vec<f64>>,
 }
-
 
 pub(super) struct SumSquaredWindow<'a, T> {
     slice: &'a [T],
@@ -80,37 +81,18 @@ pub struct ProdWindow<'a, T> {
     pub(super) null_count: usize,
 }
 
-
 pub trait RollingAggWindow<'a, T: NativeType> {
+    unsafe fn update(&mut self, start: usize, end: usize) -> Option<T>;
 
-    unsafe fn update(
-        &mut self,
-        start: usize,
-        end: usize) -> Option<T>;
+    unsafe fn update_nulls(&mut self, start: usize, end: usize) -> Option<T>;
 
-    unsafe fn update_nulls(
-        &mut self,
-        start: usize,
-        end: usize) -> Option<T>;
+    unsafe fn update_no_nulls(&mut self, start: usize, end: usize) -> Option<T>;
 
-    unsafe fn update_no_nulls(
-        &mut self,
-        start: usize,
-        end: usize) -> Option<T>;
+    unsafe fn new(slice: &'a [T], validity: Option<&'a Bitmap>, start: usize, end: usize) -> Self;
 
-    unsafe fn new(
-        slice: &'a [T],
-        validity: Option<&'a Bitmap>,
-        start: usize,
-        end: usize,
-    ) -> Self;
-
-    fn is_valid(
-        &self,
-        min_periods: usize) -> bool;
+    fn is_valid(&self, min_periods: usize) -> bool;
 
     fn window_type() -> &'static str;
-
 }
 
 fn det_offsets(i: Idx, window_size: WindowSize, _len: Len) -> (usize, usize) {
@@ -165,28 +147,27 @@ where
     }
 }
 
-
 fn rolling_aggregator<'a, Agg, T, U>(
     ca: &'a ChunkedArray<U>,
     window_size: usize,
     min_periods: usize,
     center: bool,
-    weights: Option<Vec<f64>>) -> PolarsResult<Series>
+    weights: Option<Vec<f64>>,
+) -> PolarsResult<Series>
 where
     Agg: RollingAggWindow<'a, T>,
     U: PolarsNumericType<Native = T>,
-    T: NativeType +
-    iter::Sum +
-    iter::Product +
-    NumCast +
-    AddAssign +
-    SubAssign +
-    DivAssign +
-    MulAssign +
-    Num +
-    PartialOrd,
+    T: NativeType
+        + iter::Sum
+        + iter::Product
+        + NumCast
+        + AddAssign
+        + SubAssign
+        + DivAssign
+        + MulAssign
+        + Num
+        + PartialOrd,
 {
-
     //let ca = ca.rechunk();
     let arr = ca.downcast_iter().next().unwrap();
     let arr = match ca.null_count() {
@@ -208,5 +189,4 @@ where
         )?,
     };
     Series::try_from((ca.name().clone(), arr))
-
 }

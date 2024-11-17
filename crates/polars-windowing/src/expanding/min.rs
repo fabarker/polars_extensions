@@ -1,10 +1,7 @@
-use polars::prelude::*;
-use polars::prelude::PolarsResult;
-use polars_core::prelude::{Series};
+use polars::prelude::{PolarsResult, *};
+use polars_core::prelude::Series;
 
-pub fn expanding_min(series: &Series,
-                     min_periods: usize) -> PolarsResult<Series> {
-
+pub fn expanding_min(series: &Series, min_periods: usize) -> PolarsResult<Series> {
     // Cast to Float64 ChunkedArray
     let arr = series.f64()?;
     let len = arr.len();
@@ -13,17 +10,12 @@ pub fn expanding_min(series: &Series,
 
     // Handle null values in the input array
     for (idx, opt_val) in arr.into_iter().enumerate() {
-
         if let Some(val) = opt_val {
             current_min = current_min.min(val);
             result.push(Some(current_min));
         } else {
             // If we encounter a null value, keep the previous min
-            result.push(if idx > 0 {
-                Some(current_min)
-            } else {
-                None
-            });
+            result.push(if idx > 0 { Some(current_min) } else { None });
         }
 
         if idx < (min_periods - 1) {

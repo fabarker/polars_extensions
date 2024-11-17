@@ -1,11 +1,9 @@
 use polars::prelude::PolarsResult;
 use polars_core::prelude::{NamedFrom, Series};
+
 use crate::rolling::skew::*;
 
-pub fn expanding_skew(
-    input: &Series,
-    min_periods: usize,
-) -> PolarsResult<Series> {
+pub fn expanding_skew(input: &Series, min_periods: usize) -> PolarsResult<Series> {
     let x = input.len() as i64;
 
     if x == 0 {
@@ -14,24 +12,21 @@ pub fn expanding_skew(
 
     // For expanding window, the window size grows with each position
     // Start indices are always 0, end indices increase by 1
-    let start = vec![0; x as usize];  // All windows start at 0
-    let end: Vec<i64> = (1..=x).collect();  // End points grow: 1,2,3,...,n
+    let start = vec![0; x as usize]; // All windows start at 0
+    let end: Vec<i64> = (1..=x).collect(); // End points grow: 1,2,3,...,n
 
     let values: &[f64] = input.f64()?.cont_slice()?;
-    let result = roll_skew(values,
-                           &start,
-                           &end,
-                           min_periods as i64);
+    let result = roll_skew(values, &start, &end, min_periods as i64);
 
     let series = Series::new("name_of_series".into(), result);
     Ok(series.into())
 }
 
-
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use approx::assert_abs_diff_eq;  // For floating point comparisons
+    use approx::assert_abs_diff_eq;
+
+    use super::*; // For floating point comparisons
 
     #[test]
     fn test_expanding_skew_basic() -> PolarsResult<()> {

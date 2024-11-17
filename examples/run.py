@@ -13,6 +13,12 @@ df['symbol'] = "PUT"
 df.columns = ['date','asset_returns','symbol']
 returns_df = pl.from_pandas(df)
 
+df = pl.DataFrame(
+    {
+        "asset_returns": [1, 2, 3, 4, 5, 6, 7, 8],
+    }
+)
+
 
 # Polars Moving Mean Extension
 exp_ = pl.col("asset_returns").sliding(window=252)

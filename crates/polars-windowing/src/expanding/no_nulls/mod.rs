@@ -1,15 +1,15 @@
-use super::*;
 use std::fmt::Debug;
-use num_traits::Num;
+use std::iter;
+use std::ops::Mul;
+
+use num_traits::{Num, NumCast, One, Zero};
 use polars::prelude::PolarsResult;
 use polars_arrow::array::{ArrayRef, PrimitiveArray};
 use polars_arrow::datatypes::ArrowDataType;
 use polars_arrow::legacy::utils::CustomIterTools;
 use polars_arrow::types::NativeType;
-use std::ops::Mul;
-use std::iter;
-use num_traits::NumCast;
-use num_traits::{Zero, One};
+
+use super::*;
 
 pub fn expanding_aggregator_no_nulls<'a, Agg, T>(
     values: &'a [T],
@@ -19,28 +19,13 @@ pub fn expanding_aggregator_no_nulls<'a, Agg, T>(
 ) -> PolarsResult<ArrayRef>
 where
     Agg: ExpandingAggWindow<'a, T>,
-    T: NativeType
-    + iter::Sum
-    + NumCast
-    + Mul<Output = T>
-    + AddAssign
-    + SubAssign
-    + Num,
+    T: NativeType + iter::Sum + NumCast + Mul<Output = T> + AddAssign + SubAssign + Num,
 {
     match weights {
-        None => expanding_apply_agg_window::<Agg, _>(
-            &values,
-            validity,
-            min_periods,
-        ),
+        None => expanding_apply_agg_window::<Agg, _>(&values, validity, min_periods),
         Some(weights) => {
             let weights = coerce_weights(weights);
-            expanding_apply_weights(
-                &values,
-                min_periods,
-                compute_sum_weights,
-                &weights,
-            )
+            expanding_apply_weights(&values, min_periods, compute_sum_weights, &weights)
         },
     }
 }
@@ -54,7 +39,6 @@ where
     Agg: ExpandingAggWindow<'a, T>,
     T: Debug + NativeType + Num,
 {
-
     let len = values.len();
     // Instantiate new window struct
     let mut agg_window = unsafe { Agg::new(values, validity, 0, 1) };
@@ -70,7 +54,6 @@ where
     let arr = PrimitiveArray::from_trusted_len_iter(out);
     Ok(Box::new(arr))
 }
-
 
 pub(super) fn expanding_apply_weights<T, Fa>(
     values: &[T],
@@ -101,8 +84,8 @@ where
 
 fn get_validity(n: usize, t: usize) -> Option<MutableBitmap> {
     let mut bits = MutableBitmap::with_capacity(n);
-    bits.extend_constant(t, false);  // First T bits as false
-    bits.extend_constant(n - t, true);  // Remaining N-T bits as true
+    bits.extend_constant(t, false); // First T bits as false
+    bits.extend_constant(n - t, true); // Remaining N-T bits as true
     Some(bits)
 }
 
@@ -118,7 +101,11 @@ where
     T: iter::Sum<T> + Copy + Mul<Output = T> + Zero + One + std::ops::Div<Output = T>,
 {
     assert!(!weights.is_empty(), "Weights array cannot be empty");
-    assert_eq!(values.len(), weights.len(), "Values and weights must have the same length");
+    assert_eq!(
+        values.len(),
+        weights.len(),
+        "Values and weights must have the same length"
+    );
 
     // Calculate sum of weights
     let sum: T = weights.iter().copied().fold(T::zero(), |acc, x| acc + x);
@@ -128,7 +115,8 @@ where
     let inv_sum = T::one() / sum;
 
     // Multiply each value by its normalized weight and sum
-    values.iter()
+    values
+        .iter()
         .zip(weights.iter())
         .map(|(v, w)| *v * (*w * inv_sum))
         .sum()

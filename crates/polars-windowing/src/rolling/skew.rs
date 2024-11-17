@@ -1,7 +1,7 @@
-use polars::prelude::*;
 use std::cmp::max;
-use polars_core::utils::Container;
 
+use polars::prelude::*;
+use polars_core::utils::Container;
 
 pub fn rolling_skew(
     input: &Series,
@@ -9,7 +9,6 @@ pub fn rolling_skew(
     min_periods: usize,
     center: bool,
 ) -> PolarsResult<Series> {
-
     let x = input.len() as i64;
 
     if x == 0 {
@@ -17,18 +16,15 @@ pub fn rolling_skew(
     }
 
     let (start, end) = get_window_bounds(
-        window_size as i64,             // window_size
-        x,                              // num_values
-        Some(center),                   // center
-        Some("right"),                  // closed
-        Some(1),                        // step
+        window_size as i64, // window_size
+        x,                  // num_values
+        Some(center),       // center
+        Some("right"),      // closed
+        Some(1),            // step
     );
 
     let values: &[f64] = input.f64()?.cont_slice()?;
-    let result = roll_skew(values,
-                           &start,
-                           &end,
-                           min_periods as i64);
+    let result = roll_skew(values, &start, &end, min_periods as i64);
 
     let series = Series::new("name_of_series".into(), result);
     Ok(series.into())
@@ -41,7 +37,6 @@ pub fn get_window_bounds(
     closed: Option<&str>,
     step: Option<i64>,
 ) -> (Vec<i64>, Vec<i64>) {
-
     // Calculate offset based on center parameter and window size
     let offset = if center.unwrap_or(false) || window_size == 0 {
         (window_size - 1) / 2
@@ -58,40 +53,37 @@ pub fn get_window_bounds(
         .collect();
 
     // Generate start points
-    let mut start: Vec<i64> = end.iter()
-        .map(|x| x - window_size)
-        .collect();
+    let mut start: Vec<i64> = end.iter().map(|x| x - window_size).collect();
 
     // Adjust for closed parameter
     match closed.unwrap_or("right") {
         "left" | "both" => {
             start.iter_mut().for_each(|x| *x -= 1);
-        }
+        },
         "left" | "neither" => {
             end.iter_mut().for_each(|x| *x -= 1);
-        }
-        _ => {}
+        },
+        _ => {},
     }
 
     // Clip values to valid range
-    start.iter_mut().for_each(|x| *x = *x.clamp(&mut 0i64, &mut num_values));
-    end.iter_mut().for_each(|x| *x = *x.clamp(&mut 0i64, &mut num_values));
+    start
+        .iter_mut()
+        .for_each(|x| *x = *x.clamp(&mut 0i64, &mut num_values));
+    end.iter_mut()
+        .for_each(|x| *x = *x.clamp(&mut 0i64, &mut num_values));
 
     (start, end)
 }
 
 #[inline]
-fn is_monotonic_increasing_start_end_bounds(
-    start: &[i64],
-    end: &[i64],
-) -> bool {
-
+fn is_monotonic_increasing_start_end_bounds(start: &[i64], end: &[i64]) -> bool {
     if start.len() <= 1 {
         return true;
     }
 
     for i in 1..start.len() {
-        if start[i] < start[i-1] || end[i] < end[i-1] {
+        if start[i] < start[i - 1] || end[i] < end[i - 1] {
             return false;
         }
     }
@@ -120,9 +112,7 @@ fn calc_skew(
         // uniform case, force result to be 0
         else if num_consecutive_same_value >= nobs {
             0.0
-        }
-
-        else if b <= 1e-14 {
+        } else if b <= 1e-14 {
             f64::NAN
         } else {
             let r = b.sqrt();
@@ -133,12 +123,7 @@ fn calc_skew(
     }
 }
 
-pub fn roll_skew(
-    values: &[f64],
-    start: &[i64],
-    end: &[i64],
-    min_periods: i64,
-) -> Vec<f64> {
+pub fn roll_skew(values: &[f64], start: &[i64], end: &[i64], min_periods: i64) -> Vec<f64> {
     let min_periods = max(min_periods, 3);
     let n = start.len();
 
@@ -190,9 +175,8 @@ pub fn roll_skew(
         let s = start[i] as usize;
         let e = end[i] as usize;
 
-        if i == 0 || !is_monotonic_increasing_bounds || s >= end[i-1] as usize {
-
-            prev_value = values[s];  // Just assign, don't redeclare
+        if i == 0 || !is_monotonic_increasing_bounds || s >= end[i - 1] as usize {
+            prev_value = values[s]; // Just assign, don't redeclare
             num_consecutive_same_value = 0;
 
             // Reset accumulators
@@ -223,7 +207,7 @@ pub fn roll_skew(
         } else {
             // Window is moving forward
             // Remove old values
-            for j in start[i-1] as usize..s {
+            for j in start[i - 1] as usize..s {
                 let val = values_copy[j];
                 remove_skew(
                     val,
@@ -238,7 +222,7 @@ pub fn roll_skew(
             }
 
             // Add new values
-            for j in end[i-1] as usize..e {
+            for j in end[i - 1] as usize..e {
                 let val = values_copy[j];
                 add_skew(
                     val,
@@ -353,8 +337,9 @@ fn add_skew(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use approx::assert_abs_diff_eq;  // For floating point comparisons
+    use approx::assert_abs_diff_eq;
+
+    use super::*; // For floating point comparisons
 
     #[test]
     fn test_simple_skew() {
@@ -367,9 +352,9 @@ mod tests {
         let result = roll_skew(&values, &start, &end, min_periods);
 
         // Expected values can be calculated using pandas for verification
-        assert_abs_diff_eq!(result[0], 0.0, epsilon = 1e-10);  // skew of [1,2,3]
-        assert_abs_diff_eq!(result[1], 0.0, epsilon = 1e-10);  // skew of [2,3,4]
-        assert_abs_diff_eq!(result[2], 0.0, epsilon = 1e-10);  // skew of [3,4,5]
+        assert_abs_diff_eq!(result[0], 0.0, epsilon = 1e-10); // skew of [1,2,3]
+        assert_abs_diff_eq!(result[1], 0.0, epsilon = 1e-10); // skew of [2,3,4]
+        assert_abs_diff_eq!(result[2], 0.0, epsilon = 1e-10); // skew of [3,4,5]
     }
 
     #[test]
@@ -382,8 +367,8 @@ mod tests {
 
         let result = roll_skew(&values, &start, &end, min_periods);
 
-        assert!(result[0].is_nan());  // Contains NaN
-        assert_abs_diff_eq!(result[2], 0.0, epsilon = 1e-10);  // [3,4,5] is valid
+        assert!(result[0].is_nan()); // Contains NaN
+        assert_abs_diff_eq!(result[2], 0.0, epsilon = 1e-10); // [3,4,5] is valid
     }
 
     #[test]
@@ -391,7 +376,7 @@ mod tests {
         let values = vec![1.0, 2.0, 3.0, 4.0, 5.0];
         let start = vec![0, 1];
         let end = vec![2, 3];
-        let min_periods = 3;  // Requiring 3 values but windows only have 2
+        let min_periods = 3; // Requiring 3 values but windows only have 2
 
         let result = roll_skew(&values, &start, &end, min_periods);
 
@@ -416,8 +401,8 @@ mod tests {
     #[test]
     fn test_non_monotonic_bounds() {
         let values = vec![1.0, 2.0, 3.0, 4.0, 5.0];
-        let start = vec![2, 1, 0];  // Non-monotonic
-        let end = vec![5, 4, 3];    // Non-monotonic
+        let start = vec![2, 1, 0]; // Non-monotonic
+        let end = vec![5, 4, 3]; // Non-monotonic
         let min_periods = 3;
 
         let result = roll_skew(&values, &start, &end, min_periods);
@@ -430,7 +415,7 @@ mod tests {
     #[test]
     fn test_skewed_distribution() {
         // Test with known skewed distribution
-        let values = vec![1.0, 1.0, 1.0, 10.0];  // Highly skewed right
+        let values = vec![1.0, 1.0, 1.0, 10.0]; // Highly skewed right
         let start = vec![0];
         let end = vec![4];
         let min_periods = 3;
@@ -470,11 +455,11 @@ mod tests {
         let mut start = Vec::new();
         let mut end = Vec::new();
         for i in 0..15 {
-            start.push(i64::max(0, i - 9));  // window size 10
+            start.push(i64::max(0, i - 9)); // window size 10
             end.push(i + 1);
         }
 
-        let result = roll_skew(&values, &start, &end, 10);  // min_periods = 10
+        let result = roll_skew(&values, &start, &end, 10); // min_periods = 10
 
         // Test full windows (index >= 9)
         for i in 9..15 {
@@ -544,11 +529,11 @@ mod tests {
     #[test]
     fn test_window_bounds() {
         let (start, end) = get_window_bounds(
-            3,              // window_size
-            5,              // num_values
-            Some(false),    // center
-            Some("right"),  // closed
-            Some(1),        // step
+            3,             // window_size
+            5,             // num_values
+            Some(false),   // center
+            Some("right"), // closed
+            Some(1),       // step
         );
 
         // For a window size of 3, not centered:

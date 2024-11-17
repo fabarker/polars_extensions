@@ -1,31 +1,31 @@
-use super::*;
-use std::ops::{Add, Sub, Mul};
+use std::ops::{Add, Mul, Sub};
+
+use num::{Float, One, Zero};
 use polars::prelude::series::AsSeries;
-use crate::with_match_physical_float_polars_type;
-use num::{Zero, One, Float};
-use crate::DataType;
+
+use super::*;
+use crate::{with_match_physical_float_polars_type, DataType};
 
 pub fn expanding_var(
     input: &Series,
     min_periods: usize,
     weights: Option<Vec<f64>>,
 ) -> PolarsResult<Series> {
-
     let s = input.as_series().to_float()?;
     with_match_physical_float_polars_type!(
-        s.dtype(),
-        |T U| {
-            let ca: &ChunkedArray<U> = s.as_ref().as_ref().as_ref();
-            expanding_aggregator::<VarWindow<T>, T, U>(  // Note: using $_ as per macro definition
-            ca,
-            min_periods,
-            weights)
-            }
-        )
+    s.dtype(),
+    |T U| {
+        let ca: &ChunkedArray<U> = s.as_ref().as_ref().as_ref();
+        expanding_aggregator::<VarWindow<T>, T, U>(  // Note: using $_ as per macro definition
+        ca,
+        min_periods,
+        weights)
+        }
+    )
 }
 
 impl<'a, T: NativeType + IsFloat + Add<Output = T> + Sub<Output = T> + Mul<Output = T>>
-SumSquaredWindow<'a, T>
+    SumSquaredWindow<'a, T>
 {
     // compute sum from the entire window
     unsafe fn compute_sum_and_null_count(&mut self, start: usize, end: usize) -> Option<T> {
@@ -33,7 +33,6 @@ SumSquaredWindow<'a, T>
         let mut idx = start;
         self.null_count = 0;
         for value in &self.slice[start..end] {
-
             let valid = match self.validity {
                 None => true,
                 Some(bitmap) => bitmap.get_bit_unchecked(idx),
@@ -54,16 +53,12 @@ SumSquaredWindow<'a, T>
     }
 }
 
-
-impl<'a, T: NativeType + IsFloat + Mul<Output = T>  + Add<Output = T> + Sub<Output = T> + iter::Sum> ExpandingAggWindow<'a, T>
-for SumSquaredWindow<'a, T>
+impl<
+        'a,
+        T: NativeType + IsFloat + Mul<Output = T> + Add<Output = T> + Sub<Output = T> + iter::Sum,
+    > ExpandingAggWindow<'a, T> for SumSquaredWindow<'a, T>
 {
-    unsafe fn new(
-        slice: &'a [T],
-        validity: Option<&'a Bitmap>,
-        start: usize,
-        end: usize,
-    ) -> Self {
+    unsafe fn new(slice: &'a [T], validity: Option<&'a Bitmap>, start: usize, end: usize) -> Self {
         let mut out = Self {
             slice,
             validity,
@@ -102,7 +97,9 @@ for SumSquaredWindow<'a, T>
                     break;
                 }
 
-                self.sum_of_squares = self.sum_of_squares.map(|v| v - (leaving_value * leaving_value))
+                self.sum_of_squares = self
+                    .sum_of_squares
+                    .map(|v| v - (leaving_value * leaving_value))
             }
             recompute_sum
         };
@@ -111,16 +108,18 @@ for SumSquaredWindow<'a, T>
 
         // we traverse all values and compute
         if T::is_float() && recompute_sum {
-            self.sum_of_squares = Some(self
-                .slice
-                .get_unchecked(start..end)
-                .iter()
-                .map(|v| *v * *v)
-                .sum::<T>());
+            self.sum_of_squares = Some(
+                self.slice
+                    .get_unchecked(start..end)
+                    .iter()
+                    .map(|v| *v * *v)
+                    .sum::<T>(),
+            );
         } else {
             for idx in self.last_end..end {
                 let entering_value = *self.slice.get_unchecked(idx);
-                self.sum_of_squares = Some(self.sum_of_squares.unwrap() + (entering_value * entering_value))
+                self.sum_of_squares =
+                    Some(self.sum_of_squares.unwrap() + (entering_value * entering_value))
             }
         }
         self.last_end = end;
@@ -170,7 +169,6 @@ for SumSquaredWindow<'a, T>
             self.compute_sum_and_null_count(start, end);
         } else {
             for idx in self.last_end..end {
-
                 let valid = match self.validity {
                     None => true,
                     Some(bitmap) => bitmap.get_bit_unchecked(idx),
@@ -202,16 +200,20 @@ for SumSquaredWindow<'a, T>
     }
 }
 
-
-impl<'a, T: Zero + One + Float + NativeType + IsFloat + Mul<Output = T>  + Add<Output = T> + Sub<Output = T> + iter::Sum> ExpandingAggWindow<'a, T>
-for VarWindow<'a, T>
+impl<
+        'a,
+        T: Zero
+            + One
+            + Float
+            + NativeType
+            + IsFloat
+            + Mul<Output = T>
+            + Add<Output = T>
+            + Sub<Output = T>
+            + iter::Sum,
+    > ExpandingAggWindow<'a, T> for VarWindow<'a, T>
 {
-    unsafe fn new(
-        slice: &'a [T],
-        validity: Option<&'a Bitmap>,
-        start: usize,
-        end: usize,
-    ) -> Self {
+    unsafe fn new(slice: &'a [T], validity: Option<&'a Bitmap>, start: usize, end: usize) -> Self {
         Self {
             mean: MeanWindow::new(slice, validity, start, end),
             sum_of_squares: SumSquaredWindow::new(slice, validity, start, end),

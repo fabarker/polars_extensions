@@ -1,9 +1,11 @@
 use std::ops::{Add, Sub};
+
 use num_traits::Num;
 use polars_arrow::array::{ArrayRef, PrimitiveArray};
 use polars_arrow::bitmap::{Bitmap, MutableBitmap};
-use polars_arrow::types::NativeType;
 use polars_arrow::legacy::utils::CustomIterTools;
+use polars_arrow::types::NativeType;
+
 use super::*;
 
 pub fn expanding_aggregator_nulls<'a, Agg, T>(
@@ -16,16 +18,11 @@ where
     Agg: ExpandingAggWindow<'a, T>,
     T: NativeType + Num + PartialOrd + Add<Output = T> + Sub<Output = T>,
 {
-
     if weights.is_some() {
         panic!("weights not yet supported on array with null values")
     }
 
-    expanding_apply_agg_window::<Agg, _>(
-            values,
-            validity,
-            min_periods,
-        )
+    expanding_apply_agg_window::<Agg, _>(values, validity, min_periods)
 }
 
 // Use an aggregation window that maintains the state
@@ -46,7 +43,6 @@ where
 
     let out = (0..=len)
         .map(|idx| {
-
             // SAFETY:
             // we are in bounds
             let agg = unsafe { agg_window.update(0, idx) };

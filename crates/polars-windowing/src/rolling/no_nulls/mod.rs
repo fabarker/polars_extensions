@@ -1,15 +1,15 @@
-use super::*;
 use std::fmt::Debug;
-use num_traits::Num;
+use std::iter;
+use std::ops::{Add, AddAssign, Mul, Sub};
+
+use num_traits::{Num, NumCast, One, Zero};
 use polars::prelude::PolarsResult;
 use polars_arrow::array::{ArrayRef, PrimitiveArray};
 use polars_arrow::datatypes::ArrowDataType;
 use polars_arrow::legacy::utils::CustomIterTools;
 use polars_arrow::types::NativeType;
-use std::ops::{Mul, Sub, Add, AddAssign};
-use std::iter;
-use num_traits::NumCast;
-use num_traits::{Zero, One};
+
+use super::*;
 
 pub fn rolling_aggregator_no_nulls<'a, Agg, T>(
     values: &'a [T],
@@ -22,14 +22,15 @@ pub fn rolling_aggregator_no_nulls<'a, Agg, T>(
 where
     Agg: RollingAggWindow<'a, T>,
     T: NativeType
-    + iter::Sum
-    + NumCast
-    + Mul<Output = T>
-    + AddAssign
-    + SubAssign
-    + Num + iter::Product + One,
+        + iter::Sum
+        + NumCast
+        + Mul<Output = T>
+        + AddAssign
+        + SubAssign
+        + Num
+        + iter::Product
+        + One,
 {
-
     let aggregator = {
         match Agg::window_type() {
             "prod" => compute_prod_weights,
@@ -89,7 +90,6 @@ where
     Agg: RollingAggWindow<'a, T>,
     T: Debug + NativeType + Num,
 {
-
     let len = values.len();
     let (start, end) = det_offsets_fn(0, window_size, len);
 
@@ -118,7 +118,6 @@ where
     let arr = PrimitiveArray::from_trusted_len_iter(out);
     Ok(Box::new(arr))
 }
-
 
 pub(super) fn rolling_apply_weights<T, Fo, Fa>(
     values: &[T],
@@ -156,7 +155,8 @@ pub(crate) fn compute_prod_weights<T>(values: &[T], weights: &[T]) -> T
 where
     T: iter::Product<T> + Copy + Mul<Output = T> + One + Sub<Output = T> + Add<Output = T>,
 {
-    values.iter()
+    values
+        .iter()
         .zip(weights)
         .map(|(v, w)| (*v - T::one()) * *w + T::one())
         .product()
@@ -174,7 +174,11 @@ where
     T: iter::Sum<T> + Copy + Mul<Output = T> + Zero + One + std::ops::Div<Output = T>,
 {
     assert!(!weights.is_empty(), "Weights array cannot be empty");
-    assert_eq!(values.len(), weights.len(), "Values and weights must have the same length");
+    assert_eq!(
+        values.len(),
+        weights.len(),
+        "Values and weights must have the same length"
+    );
 
     // Calculate sum of weights
     let sum: T = weights.iter().copied().fold(T::zero(), |acc, x| acc + x);
@@ -184,7 +188,8 @@ where
     let inv_sum = T::one() / sum;
 
     // Multiply each value by its normalized weight and sum
-    values.iter()
+    values
+        .iter()
         .zip(weights.iter())
         .map(|(v, w)| *v * (*w * inv_sum))
         .sum()

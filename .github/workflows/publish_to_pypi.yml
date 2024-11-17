@@ -11,9 +11,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  
   group: ${{ github.workflow }}-${{ github.ref }}
-  
   cancel-in-progress: true
 
 permissions:
@@ -22,7 +20,6 @@ permissions:
 # Make sure CI fails on all warnings, including Clippy lints
 env:
   RUSTFLAGS: "-Dwarnings"
-  PYTHON_VERSION: '3.11'
 
 jobs:
   linux_tests:
@@ -30,39 +27,37 @@ jobs:
     strategy:
       matrix:
         target: [x86_64]
-        python-version: ["3.8", "3.9", "3.10", "3.11"]
+        python-version: ["3.10", "3.11"]
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
         with:
-          
           python-version: ${{ matrix.python-version }}
-          
-
       - name: Set up Rust
         run: rustup show
       - uses: mozilla-actions/sccache-action@v0.0.3
-      - run: make .venv
+      - name: Set up virtual environment
+        run: |
+            python --version
+            make .venv
       - run: make pre-commit
       - run: make install
       - run: make test
-
   linux:
     runs-on: ubuntu-latest
     strategy:
       matrix:
         target: [x86_64, x86]
+        python-version: ["3.10", "3.11"]
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: ${{ matrix.python-version }}
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
-          
           target: ${{ matrix.target }}
-          
           args: --release --out dist --find-interpreter
           sccache: 'true'
           manylinux: auto
@@ -77,20 +72,17 @@ jobs:
     strategy:
       matrix:
         target: [x64]
+        python-version: ["3.10", "3.11"]
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
-          
+          python-version: ${{ matrix.python-version }}
           architecture: ${{ matrix.target }}
-          
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
-          
           target: ${{ matrix.target }}
-          
           args: --release --out dist --find-interpreter
           sccache: 'true'
       - name: Upload wheels
@@ -104,17 +96,16 @@ jobs:
     strategy:
       matrix:
         target: [x86_64, aarch64]
+        python-version: ["3.10", "3.11"]
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: ${{ matrix.python-version }}
       - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
-          
           target: ${{ matrix.target }}
-          
           args: --release --out dist --find-interpreter
           sccache: 'true'
       - name: Upload wheels

@@ -28,3 +28,7 @@ run: install
 run-release: install-release
 	source .venv/bin/activate && python run.py
 
+setup-nightly:
+	rustup toolchain install nightly
+	rustup component add rustfmt --toolchain nightly
+	rustup component add clippy --toolchain nightly

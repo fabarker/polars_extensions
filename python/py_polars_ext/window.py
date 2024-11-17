@@ -1,10 +1,9 @@
 from abc import ABC, abstractmethod
 import polars as pl
-from typing import Optional, Self, Sequence, Union
-from py_polars_ext.enums.windowing import *
+from py_polars_ext.enums.windowing import WinType, UDF
 import numpy.typing as npt
 from py_polars_ext._utils import pl_plugin
-from typing import Dict, Any, Optional, Tuple, List, Optional, Self, Sequence, Union
+from typing import Dict, Any, Optional, Self
 
 _DROP_FIELDS = ['_expr', '_window_type', '_ignore_nans', '_center', '_window', '_symbol', '_winType']
 

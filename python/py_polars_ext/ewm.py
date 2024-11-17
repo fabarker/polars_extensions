@@ -1,12 +1,8 @@
-from abc import ABC
 import polars as pl
-from typing import Dict, Any, Optional, Tuple, List, Optional, Self, Sequence, Union
-import numpy.typing as npt
-from py_polars_ext._utils import pl_plugin
+from typing import Self
 from py_polars_ext.window import Window, Expanding, Sliding
-from py_polars_ext.enums.windowing import *
-from types import MethodType
-from typing import Callable, Any
+from py_polars_ext.enums.windowing import WinType
+
 
 
 class ExponentialMoving(Window):
@@ -14,8 +10,7 @@ class ExponentialMoving(Window):
 
     def __init__(self,
                  expr: pl.Expr,
-                 window_type: WinType,
-                 pars: Callable[..., Any]):
+                 window_type: WinType):
 
 
         super(ExponentialMoving, self).__init__(expr, window_type)

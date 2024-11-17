@@ -1,6 +1,4 @@
 from typing import TYPE_CHECKING, Union
-from py_polars_ext._utils import pl_plugin
-from py_polars_ext._utils import *
 
 if TYPE_CHECKING:
     import sys

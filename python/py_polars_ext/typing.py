@@ -8,7 +8,8 @@ if TYPE_CHECKING:
         from typing import TypeAlias
     else:
         from typing_extensions import TypeAlias
-    import DataType, DataTypeClass
+    import DataType
+    import DataTypeClass
 
     IntoExprColumn: TypeAlias = Union[pl.Expr, str, pl.Series]
     PolarsDataType: TypeAlias = Union[DataType, DataTypeClass]

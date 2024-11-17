@@ -1,4 +1,4 @@
-import py_polars_ext
+import py_polars_ext  # noqa: F401
 import polars as pl
 
 

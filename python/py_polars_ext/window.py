@@ -3,8 +3,8 @@ import polars as pl
 from py_polars_ext.enums.windowing import WinType, UDF
 import numpy.typing as npt
 from py_polars_ext._utils import pl_plugin
-from typing import Dict, Any, Optional, Self
-
+from typing import Dict, Any, Optional
+from typing_extensions import Self
 from enum import Enum
 
 _DROP_FIELDS = [

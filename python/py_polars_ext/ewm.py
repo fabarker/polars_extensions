@@ -1,5 +1,5 @@
 import polars as pl
-from typing import Self
+from typing_extensions import Self
 from py_polars_ext.window import Window, Expanding, Sliding
 from py_polars_ext.enums.windowing import WinType
 

@@ -203,3 +203,75 @@ where
         .map(|v| NumCast::from(*v).unwrap())
         .collect::<Vec<_>>()
 }
+
+pub(super) fn calc_rolling_aggregator<'a, Agg, T, Fo>(
+    values: &'a [T],
+    validity: Option<&'a Bitmap>,
+    window_size: usize,
+    min_periods: usize,
+    det_offsets_fn: Fo,
+) -> ArrayRef
+where
+    Fo: Fn(Idx, WindowSize, Len) -> (Start, End),
+    Agg: RollingAggWindow<'a, T>,
+    T: Debug + NativeType + Num,
+{
+    let len = values.len();
+    let (start, end) = det_offsets_fn(0, window_size, len);
+    let mut agg_window = unsafe { Agg::new(values, validity, start, end) };
+    if let Some(validity) = create_validity(min_periods, len, window_size, &det_offsets_fn) {
+        if validity.iter().all(|x| !x) {
+            return Box::new(PrimitiveArray::<T>::new_null(
+                T::PRIMITIVE.into(),
+                len,
+            ));
+        }
+    }
+
+    let out = (0..len).map(|idx| {
+        let (start, end) = det_offsets_fn(idx, window_size, len);
+        if end - start < min_periods {
+            None
+        } else {
+            // SAFETY:
+            // we are in bounds
+            unsafe { agg_window.update(start, end) }
+        }
+    });
+    let arr = PrimitiveArray::from_trusted_len_iter(out);
+    Box::new(arr)
+}
+
+pub(super) fn calc_rolling_weighted_aggregator<T, Fo, Fa>(
+    values: &[T],
+    window_size: usize,
+    min_periods: usize,
+    det_offsets_fn: Fo,
+    aggregator: Fa,
+    weights: &[T],
+) -> ArrayRef
+where
+    T: NativeType,
+    Fo: Fn(Idx, WindowSize, Len) -> (Start, End),
+    Fa: Fn(&[T], &[T]) -> T,
+{
+    assert_eq!(weights.len(), window_size);
+    let len = values.len();
+    let out = (0..len)
+        .map(|idx| {
+            let (start, end) = det_offsets_fn(idx, window_size, len);
+            let vals = unsafe { values.get_unchecked(start..end) };
+
+            aggregator(vals, weights)
+        })
+        .collect_trusted::<Vec<T>>();
+
+    let validity = create_validity(min_periods, len, window_size, det_offsets_fn).unwrap();
+    Box::new(PrimitiveArray::new(
+        T::PRIMITIVE.into(),
+        out.into(),
+        Some(validity.into()),
+    ))
+}
+
+

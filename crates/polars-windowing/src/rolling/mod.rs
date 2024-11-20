@@ -2,9 +2,10 @@ use std::fmt::Debug;
 use std::iter;
 use std::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
 
-use num_traits::{Num, NumCast};
+use num_traits::{Float, Num, NumCast};
 use polars::datatypes::{Float32Type, Float64Type};
 use polars::prelude::PolarsResult;
+use polars_arrow::array::{Array, ArrayRef, PrimitiveArray};
 use polars_arrow::bitmap::{Bitmap, MutableBitmap};
 use polars_arrow::types::NativeType;
 use polars_core::datatypes::DataType::{Float32, Float64};
@@ -12,7 +13,6 @@ use polars_core::datatypes::PolarsNumericType;
 use polars_core::prelude::ChunkedArray;
 use polars_core::series::Series;
 use polars_utils::float::IsFloat;
-
 use crate::rolling::no_nulls::rolling_aggregator_no_nulls;
 use crate::rolling::nulls::rolling_aggregator_nulls;
 
@@ -147,6 +147,10 @@ where
     }
 }
 
+
+
+
+
 fn rolling_aggregator<'a, Agg, T, U>(
     ca: &'a ChunkedArray<U>,
     window_size: usize,
@@ -158,15 +162,15 @@ where
     Agg: RollingAggWindow<'a, T>,
     U: PolarsNumericType<Native = T>,
     T: NativeType
-        + iter::Sum
-        + iter::Product
-        + NumCast
-        + AddAssign
-        + SubAssign
-        + DivAssign
-        + MulAssign
-        + Num
-        + PartialOrd,
+    + iter::Sum
+    + iter::Product
+    + NumCast
+    + AddAssign
+    + SubAssign
+    + DivAssign
+    + MulAssign
+    + Num
+    + PartialOrd,
 {
     //let ca = ca.rechunk();
     let arr = ca.downcast_iter().next().unwrap();
@@ -189,4 +193,145 @@ where
         )?,
     };
     Series::try_from((ca.name().clone(), arr))
+}
+
+
+pub(super) fn coerce_weights<T: NumCast>(weights: &[f64]) -> Vec<T>
+where
+{
+    weights
+        .iter()
+        .map(|v| NumCast::from(*v).unwrap())
+        .collect::<Vec<_>>()
+}
+
+trait MyArrayExt<T>
+where
+    T: NativeType + Float + iter::Sum<T> + SubAssign + AddAssign + IsFloat,
+{
+    fn has_nulls(&self) -> bool;
+    fn has_nulls_in_range(&self, start: usize, end: usize) -> bool;
+}
+
+impl<T> MyArrayExt<T> for PrimitiveArray<T>
+where
+    T: NativeType + Float + iter::Sum<T> + SubAssign + AddAssign + IsFloat,
+{
+    fn has_nulls(&self) -> bool {
+        self.null_count() > 0
+    }
+
+    fn has_nulls_in_range(&self, start: usize, end: usize) -> bool {
+        if let Some(valid) = self.validity() {
+            valid.iter().skip(start).take(end - start).any(|is_valid| !is_valid)
+        } else {
+            false
+        }
+    }
+}
+
+trait BitmapExt {
+    fn has_nulls_in_range(&self, start: usize, end: usize) -> bool;
+}
+
+impl BitmapExt for Bitmap {
+    fn has_nulls_in_range(&self, start: usize, end: usize) -> bool {
+        self.iter().skip(start).take(end - start).any(|is_valid| !is_valid)
+    }
+}
+
+fn apply_rolling_aggregator_chunked<T>(
+    ca: &ChunkedArray<T>,
+    window_size: usize,
+    min_periods: usize,
+    center: bool,
+    weights: Option<Vec<f64>>,
+    aggregator_fn: &dyn Fn(
+        &PrimitiveArray<T::Native>,
+        usize,
+        usize,
+        bool,
+        Option<&[f64]>,
+    ) -> ArrayRef,
+) -> PolarsResult<Series>
+where
+    T: PolarsNumericType, <T as PolarsNumericType>::Native:Float
+{
+
+    let ca = ca.rechunk();
+    let arr = ca.downcast_iter().next().unwrap();
+    let arr = aggregator_fn(
+        &arr,
+        window_size,
+        min_periods,
+        center,
+        weights.as_deref(),
+    );
+    Series::try_from((ca.name().clone(), arr))
+}
+
+
+trait WindowType<'a, T: NativeType> {
+    type Window: 'a + RollingAggWindow<'a, T>;
+    fn get_weight_computer() -> fn(&[T], &[T]) -> T;
+}
+
+type OffsetFn = fn(usize, usize, usize) -> (usize, usize);
+
+fn calc_rolling_generic<'a, T, W>(
+    arr: &'a PrimitiveArray<T>,
+    window_size: usize,
+    min_periods: usize,
+    center: bool,
+    weights: Option<&[f64]>,
+) -> ArrayRef
+where
+    T: NativeType + Float + iter::Sum<T> + SubAssign + AddAssign + IsFloat,
+    W: WindowType<'a, T>,
+{
+    let offsets: OffsetFn = if center {
+        det_offsets_center
+    } else {
+        det_offsets
+    };
+
+    match (arr.has_nulls(), weights) {
+        (true, None) => nulls::calc_rolling_aggregator::<W::Window, T, OffsetFn>(
+            arr.values().as_slice(),
+            arr.validity(),
+            window_size,
+            min_periods,
+            offsets,
+        ),
+        (false, None) => no_nulls::calc_rolling_aggregator::<W::Window, T, OffsetFn>(
+            arr.values().as_slice(),
+            arr.validity(),
+            window_size,
+            min_periods,
+            offsets,
+        ),
+        (true, Some(weights)) => {
+            let weights = coerce_weights(weights);
+            nulls::calc_rolling_weighted_aggregator(
+                arr.values().as_slice(),
+                arr.validity().unwrap(),
+                window_size,
+                min_periods,
+                offsets,
+                W::get_weight_computer(),
+                &weights,
+            )
+        },
+        (false, Some(weights)) => {
+            let weights = coerce_weights(weights);
+            no_nulls::calc_rolling_weighted_aggregator(
+                arr.values().as_slice(),
+                window_size,
+                min_periods,
+                offsets,
+                W::get_weight_computer(),
+                &weights,
+            )
+        },
+    }
 }

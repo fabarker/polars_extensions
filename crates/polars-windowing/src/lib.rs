@@ -1,9 +1,19 @@
 pub mod expanding;
 pub mod expr;
 pub mod rolling;
+
+use polars_core::prelude::UInt64Type;
+use std::iter;
+use std::iter::Sum;
+use std::ops::{AddAssign, Div, SubAssign};
+use arrow::datatypes::*;
+use num_traits::{Float, NumCast};
 use polars::prelude::*;
+use polars_arrow::array::{PrimitiveArray, Array};  // Change this import
+use polars_arrow::bitmap::Bitmap;
 use polars_arrow::legacy::kernels::rolling::no_nulls::QuantileInterpolOptions;
-use polars_core::prelude::{Float32Type, Float64Type};
+use polars_arrow::types::NativeType;
+use polars_utils::float::IsFloat;
 use polars_custom_utils::utils::weights::ExponentialDecayType;
 use polars_custom_utils::Utils;
 use serde::Deserialize;
@@ -31,7 +41,43 @@ use crate::rolling::skew::rolling_skew;
 use crate::rolling::stdev::rolling_std;
 use crate::rolling::sum::rolling_sum;
 use crate::rolling::variance::rolling_var;
-use crate::DataType;
+use crate::rolling::RollingAggWindow;
+
+
+trait MyArrayExt<T>
+where
+    T: NativeType + Float + Sum<T> + SubAssign + AddAssign + IsFloat,
+{
+    fn has_nulls(&self) -> bool;
+    fn has_nulls_in_range(&self, start: usize, end: usize) -> bool;
+}
+
+impl<T> MyArrayExt<T> for PrimitiveArray<T>
+where
+    T: NativeType + Float + Sum<T> + SubAssign + AddAssign + IsFloat,
+{
+    fn has_nulls(&self) -> bool {
+        self.null_count() > 0
+    }
+
+    fn has_nulls_in_range(&self, start: usize, end: usize) -> bool {
+        if let Some(valid) = self.validity() {
+            valid.iter().skip(start).take(end - start).any(|is_valid| !is_valid)
+        } else {
+            false
+        }
+    }
+}
+
+trait BitmapExt {
+    fn has_nulls_in_range(&self, start: usize, end: usize) -> bool;
+}
+
+impl BitmapExt for Bitmap {
+    fn has_nulls_in_range(&self, start: usize, end: usize) -> bool {
+        self.iter().skip(start).take(end - start).any(|is_valid| !is_valid)
+    }
+}
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct RollingParams {

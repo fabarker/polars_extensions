@@ -63,7 +63,7 @@ where
     }
 
     fn prepare_weights(weights: Vec<T>) -> Vec<T> {
-        <ProdWindowType as WindowType<T>>::normalize_weights(weights)
+        weights
     }
 
 }

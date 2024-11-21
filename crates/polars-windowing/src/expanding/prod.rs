@@ -28,7 +28,7 @@ fn calc_expanding_prod<T>(
     weights: Option<&[f64]>,
 ) -> ArrayRef
 where
-    T: NativeType + Float + Sum<T> + SubAssign + AddAssign + IsFloat,
+    T: NativeType + Float + Sum<T> + SubAssign + AddAssign + IsFloat + iter::Product,
 {
     calc_expanding_generic::<T, ProdWindowType>(arr, min_periods, weights)
 }
@@ -46,7 +46,7 @@ where
 struct ProdWindowType;
 impl<'a, T> WindowType<'a, T> for ProdWindowType
 where
-    T: NativeType + Float + Sum<T> + SubAssign + AddAssign + IsFloat,
+    T: NativeType + Float + Sum<T> + SubAssign + AddAssign + IsFloat + iter::Product,
 {
     type Window = ProdWindow<'a, T>;
     fn get_weight_computer() -> fn(&[T], &[T]) -> T {

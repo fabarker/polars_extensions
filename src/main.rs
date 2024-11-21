@@ -2,6 +2,7 @@ use polars::prelude::{DataFrame, SerReader, *};
 use polars_arrow::legacy::kernels::rolling::no_nulls::QuantileInterpolOptions;
 use polars_arrow::legacy::kernels::rolling::RollingQuantileParams;
 use polars_core::prelude::*;
+use polars_custom_utils::Utils;
 use polars_custom_utils::utils::weights::ExponentialDecayType;
 use polars_windowing::expr::MyCustomTrait;
 use polars_windowing::{ExpandingParams, RollingExpandingType, SeriesRollingExt, WindowParams};
@@ -41,71 +42,20 @@ fn main() -> PolarsResult<()> {
         bias: None,
     };
 
-    let res = ts.column("asset_returns")?.clone();
-    let binding = [res];
+    let decay = ExponentialDecayType::HalfLife(126.0);
+    let wts = Utils::exponential_weights(504, &decay, false).unwrap();
+    dbg!(&wts);
 
-    let params = RollingQuantileParams {
-        interpol: QuantileInterpolOptions::Linear,
-        prob: 0.5,
-    };
 
-    let opts = RollingOptionsFixedWindow {
-        window_size: 504,
-        min_periods: 504,
-        weights: None,
-        center: false,
-        fn_params: Some(Arc::new(params)),
-    };
 
-    let s = ts.column("asset_returns")?.rolling(252).quantile(0.5)?;
+    let mut chunked = ts.column("asset_returns")?.f64()?.into_iter().collect::<Vec<Option<f64>>>();
+    let new_series = Series::new("data".into(), chunked);
+    dbg!(&new_series);
+    let s = new_series
+                        .shift(20)
+                        .rolling(504)
+                            .with_weights(Option::from(wts)).cagr();
     dbg!(&s);
 
-    //let s = ts.column("asset_returns")?.rolling_quantile(opts)?;
-
-    //let decay = ExponentialDecayType::HalfLife(126.0);
-    //let wts = Utils::exponential_weights(504, &decay).unwrap();
-
-    //dbg!(&wts);
-    let opts = RollingOptionsFixedWindow {
-        window_size: 504,
-        min_periods: 504,
-        weights: None,
-        center: false,
-        fn_params: None,
-    };
-
-    let lagged = ts
-        .clone()
-        .lazy()
-        .with_columns([col("asset_returns")
-            .shift(lit(20))
-            .over([col("symbol")])
-            .alias("lagged_asset_returns")])
-        .collect()?;
-    dbg!(&lagged);
-
-    let mom = lagged
-        .lazy()
-        .with_columns([col("lagged_asset_returns")
-            .fill_null(0)
-            .rolling_cagr(opts)
-            .over([col("symbol")])
-            .alias("mom_score")])
-        .collect()?;
-    dbg!(&mom);
-
-    //let duration = start.elapsed();
-
-    // Print the time taken
-    //println!("Time taken for rolling_mean: {:?}", duration);
-
-    // Add rolling sum columns
-    //let df = s.clone().into_frame()
-    //    .lazy()
-    //    .with_columns([col("PUT").ewm_std(opts).alias("ewm_rolling_mean")])
-    //    .collect()?;
-    //dbg!(&df);
-
-    // Print the first and last few rows of the DataFrame
     Ok(())
 }

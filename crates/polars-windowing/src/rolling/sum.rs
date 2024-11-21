@@ -1,10 +1,71 @@
-use std::ops::{Add, Sub};
+use std::ops::{Add, Mul, Sub};
 
 use polars::prelude::series::AsSeries;
 
 use super::*;
 use crate::{with_match_physical_float_polars_type, DataType};
 
+pub fn rolling_sum(
+    input: &Series,
+    window_size: usize,
+    min_periods: usize,
+    center: bool,
+    weights: Option<Vec<f64>>,
+) -> PolarsResult<Series> {
+
+    let s = input.as_series().to_float()?;
+    polars_core::with_match_physical_float_polars_type!(s.dtype(), |$T| {
+            let chk_arr: &ChunkedArray<$T> = s.as_ref().as_ref().as_ref();
+            apply_rolling_aggregator_chunked(
+                chk_arr,
+                window_size,
+                min_periods,
+                center,
+                weights,
+                &calc_rolling_sum,
+            )
+        })
+}
+
+fn calc_rolling_sum<T>(
+    arr: &PrimitiveArray<T>,
+    window_size: usize,
+    min_periods: usize,
+    center: bool,
+    weights: Option<&[f64]>,
+) -> ArrayRef
+where
+    T: NativeType + Float + iter::Sum<T> + SubAssign + AddAssign + IsFloat,
+{
+    calc_rolling_generic::<T, SumWindowType>(arr, window_size, min_periods, center, weights)
+}
+
+pub(crate) fn compute_sum_weights<T>(values: &[T], weights: &[T]) -> T
+where
+    T: Sum<T> + Copy + Mul<Output = T>,
+{
+    values.iter().zip(weights).map(|(v, w)| *v * *w).sum()
+}
+
+
+// Implement for Mean
+struct SumWindowType;
+impl<'a, T> WindowType<'a, T> for SumWindowType
+where
+    T: NativeType + Float + Sum<T> + SubAssign + AddAssign + IsFloat,
+{
+    type Window = SumWindow<'a, T>;
+    fn get_weight_computer() -> fn(&[T], &[T]) -> T {
+        compute_sum_weights
+    }
+
+    fn prepare_weights(weights: Vec<T>) -> Vec<T> {
+        weights
+    }
+
+}
+
+/*
 pub fn rolling_sum(
     input: &Series,
     window_size: usize,
@@ -26,6 +87,7 @@ pub fn rolling_sum(
         }
     )
 }
+ */
 
 impl<'a, T: NativeType + IsFloat + Add<Output = T> + Sub<Output = T>> SumWindow<'a, T> {
     // compute sum from the entire window

@@ -1,8 +1,8 @@
 use std::fmt::Debug;
 use std::iter;
 use std::iter::Sum;
+use polars_utils::index::NullCount;
 use std::ops::{AddAssign, Div, DivAssign, MulAssign, SubAssign};
-
 use num_traits::{Float, Num, NumCast};
 use polars::datatypes::{Float32Type, Float64Type};
 use polars::prelude::PolarsResult;
@@ -14,8 +14,8 @@ use polars_core::datatypes::PolarsNumericType;
 use polars_core::prelude::ChunkedArray;
 use polars_core::series::Series;
 use polars_utils::float::IsFloat;
-use crate::rolling::no_nulls::rolling_aggregator_no_nulls;
-use crate::rolling::nulls::rolling_aggregator_nulls;
+use polars_custom_utils::utils::weights::coerce_weights;
+use crate::MyArrayExt;
 
 pub mod cagr;
 pub mod kurtosis;
@@ -151,7 +151,7 @@ where
 
 
 
-
+/*
 fn rolling_aggregator<'a, Agg, T, U>(
     ca: &'a ChunkedArray<U>,
     window_size: usize,
@@ -196,50 +196,9 @@ where
     Series::try_from((ca.name().clone(), arr))
 }
 
+ */
 
-pub(super) fn coerce_weights<T: NumCast>(weights: &[f64]) -> Vec<T>
-where
-{
-    weights
-        .iter()
-        .map(|v| NumCast::from(*v).unwrap())
-        .collect::<Vec<_>>()
-}
 
-trait MyArrayExt<T>
-where
-    T: NativeType + Float + iter::Sum<T> + SubAssign + AddAssign + IsFloat,
-{
-    fn has_nulls(&self) -> bool;
-    fn has_nulls_in_range(&self, start: usize, end: usize) -> bool;
-}
-
-impl<T> MyArrayExt<T> for PrimitiveArray<T>
-where
-    T: NativeType + Float + iter::Sum<T> + SubAssign + AddAssign + IsFloat,
-{
-    fn has_nulls(&self) -> bool {
-        self.null_count() > 0
-    }
-
-    fn has_nulls_in_range(&self, start: usize, end: usize) -> bool {
-        if let Some(valid) = self.validity() {
-            valid.iter().skip(start).take(end - start).any(|is_valid| !is_valid)
-        } else {
-            false
-        }
-    }
-}
-
-trait BitmapExt {
-    fn has_nulls_in_range(&self, start: usize, end: usize) -> bool;
-}
-
-impl BitmapExt for Bitmap {
-    fn has_nulls_in_range(&self, start: usize, end: usize) -> bool {
-        self.iter().skip(start).take(end - start).any(|is_valid| !is_valid)
-    }
-}
 
 fn apply_rolling_aggregator_chunked<T>(
     ca: &ChunkedArray<T>,
@@ -270,7 +229,6 @@ where
     );
     Series::try_from((ca.name().clone(), arr))
 }
-
 
 trait WindowType<'a, T: NativeType> {
     type Window: 'a + RollingAggWindow<'a, T>;

@@ -3,7 +3,8 @@ use std::ops::{Add, Sub};
 use polars::prelude::series::AsSeries;
 
 use super::*;
-use crate::{with_match_physical_float_polars_type, DataType};
+use polars_core::datatypes::{DataType, Float32Type, Float64Type};
+use crate::{with_match_physical_float_polars_type};
 
 pub fn expanding_sum(
     input: &Series,

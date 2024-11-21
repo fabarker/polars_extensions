@@ -4,7 +4,6 @@ use num::{Float, One, Zero};
 use polars::prelude::series::AsSeries;
 
 use super::*;
-use crate::{with_match_physical_float_polars_type, DataType};
 
 pub fn rolling_var(
     input: &Series,

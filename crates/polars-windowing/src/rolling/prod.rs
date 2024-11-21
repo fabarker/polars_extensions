@@ -3,7 +3,6 @@ use num_traits::One;
 use polars::prelude::series::AsSeries;
 
 use super::*;
-use crate::{with_match_physical_float_polars_type, DataType};
 
 pub fn rolling_prod(
     input: &Series,

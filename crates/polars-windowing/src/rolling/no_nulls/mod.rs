@@ -8,7 +8,7 @@ use polars_arrow::array::{ArrayRef, PrimitiveArray};
 use polars_arrow::datatypes::ArrowDataType;
 use polars_arrow::legacy::utils::CustomIterTools;
 use polars_arrow::types::NativeType;
-
+use crate::rolling::sum::compute_sum_weights;
 use super::*;
 
 pub fn rolling_aggregator_no_nulls<'a, Agg, T>(
@@ -160,39 +160,6 @@ where
         .zip(weights)
         .map(|(v, w)| (*v - T::one()) * *w + T::one())
         .product()
-}
-
-pub(crate) fn compute_sum_weights<T>(values: &[T], weights: &[T]) -> T
-where
-    T: iter::Sum<T> + Copy + Mul<Output = T>,
-{
-    values.iter().zip(weights).map(|(v, w)| *v * *w).sum()
-}
-
-pub(crate) fn compute_sum_weights_normalized<T>(values: &[T], weights: &[T]) -> T
-where
-    T: iter::Sum<T> + Copy + Mul<Output = T> + Zero + One + std::ops::Div<Output = T>,
-{
-    assert!(!weights.is_empty(), "Weights array cannot be empty");
-    assert_eq!(
-        values.len(),
-        weights.len(),
-        "Values and weights must have the same length"
-    );
-
-    // Calculate sum of weights
-    let sum: T = weights.iter().copied().fold(T::zero(), |acc, x| acc + x);
-    assert!(!sum.is_zero(), "Sum of weights cannot be zero");
-
-    // Calculate inverse of sum for normalization
-    let inv_sum = T::one() / sum;
-
-    // Multiply each value by its normalized weight and sum
-    values
-        .iter()
-        .zip(weights.iter())
-        .map(|(v, w)| *v * (*w * inv_sum))
-        .sum()
 }
 
 pub(super) fn coerce_weights<T: NumCast>(weights: &[f64]) -> Vec<T>

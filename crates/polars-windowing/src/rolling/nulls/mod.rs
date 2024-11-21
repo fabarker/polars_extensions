@@ -5,10 +5,11 @@ use polars_arrow::array::{ArrayRef, PrimitiveArray};
 use polars_arrow::bitmap::{Bitmap, MutableBitmap};
 use polars_arrow::legacy::utils::CustomIterTools;
 use polars_arrow::types::NativeType;
-
+use crate::BitmapExt;
 use super::*;
 use crate::rolling::{End, Idx, Len, Start, WindowSize};
 
+/*
 pub fn rolling_aggregator_nulls<'a, Agg, T>(
     values: &'a [T],
     validity: Option<&'a Bitmap>,
@@ -44,7 +45,10 @@ where
     }
 }
 
+ */
+
 // Use an aggregation window that maintains the state
+/*
 pub(super) fn rolling_apply_agg_window<'a, Agg, T, Fo>(
     values: &'a [T],
     validity: Option<&'a Bitmap>,
@@ -97,6 +101,8 @@ where
     let arr = PrimitiveArray::from(out);
     Ok(Box::new(arr))
 }
+
+ */
 
 
 

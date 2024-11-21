@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 use std::iter;
-use std::ops::{AddAssign, DivAssign, MulAssign, SubAssign};
+use std::iter::Sum;
+use std::ops::{AddAssign, Div, DivAssign, MulAssign, SubAssign};
 
 use num_traits::{Float, Num, NumCast};
 use polars::datatypes::{Float32Type, Float64Type};
@@ -274,6 +275,17 @@ where
 trait WindowType<'a, T: NativeType> {
     type Window: 'a + RollingAggWindow<'a, T>;
     fn get_weight_computer() -> fn(&[T], &[T]) -> T;
+
+    fn prepare_weights(weights: Vec<T>) -> Vec<T>;
+    fn normalize_weights(mut weights: Vec<T>) -> Vec<T>
+    where
+        T: Float + Sum + Div<Output = T> + Copy, // Ensure T supports division and floating-point operations
+    {
+        let wsum = weights.iter().fold(T::zero(), |acc, x| acc + *x);
+        weights.iter_mut().for_each(|w| *w = *w / wsum);
+        weights
+    }
+
 }
 
 type OffsetFn = fn(usize, usize, usize) -> (usize, usize);
@@ -319,7 +331,7 @@ where
                 min_periods,
                 offsets,
                 W::get_weight_computer(),
-                &weights,
+                &W::prepare_weights(weights),
             )
         },
         (false, Some(weights)) => {
@@ -330,7 +342,7 @@ where
                 min_periods,
                 offsets,
                 W::get_weight_computer(),
-                &weights,
+                &W::prepare_weights(weights),
             )
         },
     }

@@ -13,6 +13,81 @@ pub fn rolling_var(
     center: bool,
     weights: Option<Vec<f64>>,
 ) -> PolarsResult<Series> {
+
+    let s = input.as_series().to_float()?;
+    polars_core::with_match_physical_float_polars_type!(s.dtype(), |$T| {
+            let chk_arr: &ChunkedArray<$T> = s.as_ref().as_ref().as_ref();
+            apply_rolling_aggregator_chunked(
+                chk_arr,
+                window_size,
+                min_periods,
+                center,
+                weights,
+                &calc_rolling_var,
+            )
+        })
+}
+
+fn calc_rolling_var<T>(
+    arr: &PrimitiveArray<T>,
+    window_size: usize,
+    min_periods: usize,
+    center: bool,
+    weights: Option<&[f64]>,
+) -> ArrayRef
+where
+    T: NativeType + Float + iter::Sum<T> + SubAssign + AddAssign + IsFloat,
+{
+    calc_rolling_generic::<T, VarWindowType>(arr, window_size, min_periods, center, weights)
+}
+
+fn compute_var_weights<T>(vals: &[T], weights: &[T]) -> T
+where
+    T: Float + AddAssign + Debug + std::fmt::Display,
+{
+    // Assumes the weights have already been standardized to 1
+    let epsilon: T = T::from(1e-9).unwrap(); // Define a small tolerance
+    debug_assert!(
+        (weights.iter().fold(T::zero(), |acc, x| acc + *x) - T::one()).abs() < epsilon,
+        "Rolling weighted variance weights don't sum to 1"
+    );
+
+    let (wssq, wmean) = vals
+        .iter()
+        .zip(weights)
+        .fold((T::zero(), T::zero()), |(wssq, wsum), (&v, &w)| {
+            (wssq + v * v * w, wsum + v * w)
+        });
+
+    wssq - wmean * wmean
+}
+
+
+// Implement for Mean
+struct VarWindowType;
+impl<'a, T> WindowType<'a, T> for VarWindowType
+where
+    T: NativeType + Float + iter::Sum<T> + SubAssign + AddAssign + IsFloat,
+{
+    type Window = VarWindow<'a, T>;
+    fn get_weight_computer() -> fn(&[T], &[T]) -> T {
+        compute_var_weights
+    }
+
+    fn prepare_weights(weights: Vec<T>) -> Vec<T> {
+        <VarWindowType as WindowType<T>>::normalize_weights(weights)
+    }
+}
+
+
+/*
+pub fn rolling_var(
+    input: &Series,
+    window_size: usize,
+    min_periods: usize,
+    center: bool,
+    weights: Option<Vec<f64>>,
+) -> PolarsResult<Series> {
     let s = input.as_series().to_float()?;
     with_match_physical_float_polars_type!(
     s.dtype(),
@@ -27,6 +102,7 @@ pub fn rolling_var(
         }
     )
 }
+ */
 
 impl<'a, T: NativeType + IsFloat + Add<Output = T> + Sub<Output = T> + Mul<Output = T>>
     SumSquaredWindow<'a, T>
@@ -57,77 +133,16 @@ impl<'a, T: NativeType + IsFloat + Add<Output = T> + Sub<Output = T> + Mul<Outpu
     }
 }
 
-impl<
-        'a,
-        T: NativeType + IsFloat + Mul<Output = T> + Add<Output = T> + Sub<Output = T> + iter::Sum,
+impl<'a,
+    T: NativeType + IsFloat + Mul<Output = T> + Add<Output = T> + Sub<Output = T> + iter::Sum,
     > RollingAggWindow<'a, T> for SumSquaredWindow<'a, T>
 {
-    unsafe fn new(slice: &'a [T], validity: Option<&'a Bitmap>, start: usize, end: usize) -> Self {
-        let mut out = Self {
-            slice,
-            validity,
-            sum_of_squares: None,
-            last_start: start,
-            last_end: end,
-            null_count: 0,
-            last_recompute: 0,
-        };
-        out.compute_sum_and_null_count(start, end);
-        out
-    }
-
     unsafe fn update(&mut self, start: usize, end: usize) -> Option<T> {
         if self.null_count > 0 {
             self.update_nulls(start, end)
         } else {
             self.update_no_nulls(start, end)
         }
-    }
-
-    unsafe fn update_no_nulls(&mut self, start: usize, end: usize) -> Option<T> {
-        let recompute_sum = if start >= self.last_end || self.last_recompute > 128 {
-            self.last_recompute = 0;
-            true
-        } else {
-            self.last_recompute += 1;
-            // remove elements that should leave the window
-            let mut recompute_sum = false;
-            for idx in self.last_start..start {
-                // SAFETY:
-                // we are in bounds
-                let leaving_value = *self.slice.get_unchecked(idx);
-                if T::is_float() && !leaving_value.is_finite() {
-                    recompute_sum = true;
-                    break;
-                }
-
-                self.sum_of_squares = self
-                    .sum_of_squares
-                    .map(|v| v - (leaving_value * leaving_value))
-            }
-            recompute_sum
-        };
-
-        self.last_start = start;
-
-        // we traverse all values and compute
-        if T::is_float() && recompute_sum {
-            self.sum_of_squares = Some(
-                self.slice
-                    .get_unchecked(start..end)
-                    .iter()
-                    .map(|v| *v * *v)
-                    .sum::<T>(),
-            );
-        } else {
-            for idx in self.last_end..end {
-                let entering_value = *self.slice.get_unchecked(idx);
-                self.sum_of_squares =
-                    Some(self.sum_of_squares.unwrap() + (entering_value * entering_value))
-            }
-        }
-        self.last_end = end;
-        Some(self.sum_of_squares?)
     }
 
     unsafe fn update_nulls(&mut self, start: usize, end: usize) -> Option<T> {
@@ -195,6 +210,66 @@ impl<
         self.sum_of_squares
     }
 
+    unsafe fn update_no_nulls(&mut self, start: usize, end: usize) -> Option<T> {
+        let recompute_sum = if start >= self.last_end || self.last_recompute > 128 {
+            self.last_recompute = 0;
+            true
+        } else {
+            self.last_recompute += 1;
+            // remove elements that should leave the window
+            let mut recompute_sum = false;
+            for idx in self.last_start..start {
+                // SAFETY:
+                // we are in bounds
+                let leaving_value = *self.slice.get_unchecked(idx);
+                if T::is_float() && !leaving_value.is_finite() {
+                    recompute_sum = true;
+                    break;
+                }
+
+                self.sum_of_squares = self
+                    .sum_of_squares
+                    .map(|v| v - (leaving_value * leaving_value))
+            }
+            recompute_sum
+        };
+
+        self.last_start = start;
+
+        // we traverse all values and compute
+        if T::is_float() && recompute_sum {
+            self.sum_of_squares = Some(
+                self.slice
+                    .get_unchecked(start..end)
+                    .iter()
+                    .map(|v| *v * *v)
+                    .sum::<T>(),
+            );
+        } else {
+            for idx in self.last_end..end {
+                let entering_value = *self.slice.get_unchecked(idx);
+                self.sum_of_squares =
+                    Some(self.sum_of_squares.unwrap() + (entering_value * entering_value))
+            }
+        }
+        self.last_end = end;
+        Some(self.sum_of_squares?)
+    }
+
+    unsafe fn new(slice: &'a [T], validity: Option<&'a Bitmap>, start: usize, end: usize) -> Self {
+        let mut out = Self {
+            slice,
+            validity,
+            sum_of_squares: None,
+            last_start: start,
+            last_end: end,
+            null_count: 0,
+            last_recompute: 0,
+        };
+        out.compute_sum_and_null_count(start, end);
+        out
+    }
+
     fn is_valid(&self, min_periods: usize) -> bool {
         ((self.last_end - self.last_start) - self.null_count) >= min_periods
     }
@@ -204,8 +279,7 @@ impl<
     }
 }
 
-impl<
-        'a,
+impl<'a,
         T: Zero
             + One
             + Float
@@ -217,19 +291,33 @@ impl<
             + iter::Sum,
     > RollingAggWindow<'a, T> for VarWindow<'a, T>
 {
-    unsafe fn new(slice: &'a [T], validity: Option<&'a Bitmap>, start: usize, end: usize) -> Self {
-        Self {
-            mean: MeanWindow::new(slice, validity, start, end),
-            sum_of_squares: SumSquaredWindow::new(slice, validity, start, end),
-            ddof: 1u8,
-        }
-    }
-
     unsafe fn update(&mut self, start: usize, end: usize) -> Option<T> {
         if self.sum_of_squares.null_count > 0 {
             self.update_nulls(start, end)
         } else {
             self.update_no_nulls(start, end)
+        }
+    }
+
+    unsafe fn update_nulls(&mut self, start: usize, end: usize) -> Option<T> {
+        let sum_of_squares = self.sum_of_squares.update(start, end)?;
+        let null_count = self.sum_of_squares.null_count;
+        let count: T = NumCast::from(end - start - null_count).unwrap();
+
+        let mean = self.mean.update(start, end)?;
+        let ddof = NumCast::from(self.ddof).unwrap();
+
+        let denom = count - ddof;
+
+        if count == T::zero() {
+            None
+        } else if count == T::one() {
+            NumCast::from(0)
+        } else if denom <= T::zero() {
+            Some(T::infinity())
+        } else {
+            let var = (sum_of_squares - count * mean * mean) / denom;
+            Some(if var < T::zero() { T::zero() } else { var })
         }
     }
 
@@ -255,25 +343,11 @@ impl<
         }
     }
 
-    unsafe fn update_nulls(&mut self, start: usize, end: usize) -> Option<T> {
-        let sum_of_squares = self.sum_of_squares.update(start, end)?;
-        let null_count = self.sum_of_squares.null_count;
-        let count: T = NumCast::from(end - start - null_count).unwrap();
-
-        let mean = self.mean.update(start, end)?;
-        let ddof = NumCast::from(self.ddof).unwrap();
-
-        let denom = count - ddof;
-
-        if count == T::zero() {
-            None
-        } else if count == T::one() {
-            NumCast::from(0)
-        } else if denom <= T::zero() {
-            Some(T::infinity())
-        } else {
-            let var = (sum_of_squares - count * mean * mean) / denom;
-            Some(if var < T::zero() { T::zero() } else { var })
+    unsafe fn new(slice: &'a [T], validity: Option<&'a Bitmap>, start: usize, end: usize) -> Self {
+        Self {
+            mean: MeanWindow::new(slice, validity, start, end),
+            sum_of_squares: SumSquaredWindow::new(slice, validity, start, end),
+            ddof: 1u8,
         }
     }
 

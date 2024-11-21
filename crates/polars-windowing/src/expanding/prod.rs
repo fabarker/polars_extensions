@@ -1,11 +1,63 @@
-use std::ops::{Div, Mul};
-
+use std::fmt::Debug;
+use std::ops::{Add, Div, Mul, Sub};
+use num_traits::One;
+use polars_core::datatypes::{Float32Type, Float64Type};
 use polars::prelude::series::AsSeries;
-
 use super::*;
-use polars_core::datatypes::{DataType, Float32Type, Float64Type};
-use crate::{with_match_physical_float_polars_type};
 
+pub fn expanding_prod(
+    input: &Series,
+    min_periods: usize,
+    weights: Option<Vec<f64>>,
+) -> PolarsResult<Series> {
+    let s = input.as_series().to_float()?;
+    polars_core::with_match_physical_float_polars_type!(s.dtype(), |$T| {
+            let chk_arr: &ChunkedArray<$T> = s.as_ref().as_ref().as_ref();
+            apply_expanding_aggregator_chunked(
+                chk_arr,
+                min_periods,
+                weights,
+                &calc_expanding_prod,
+            )
+        })
+}
+
+fn calc_expanding_prod<T>(
+    arr: &PrimitiveArray<T>,
+    min_periods: usize,
+    weights: Option<&[f64]>,
+) -> ArrayRef
+where
+    T: NativeType + Float + Sum<T> + SubAssign + AddAssign + IsFloat,
+{
+    calc_expanding_generic::<T, ProdWindowType>(arr, min_periods, weights)
+}
+
+pub(crate) fn compute_prod_weights<T>(values: &[T], weights: &[T]) -> T
+where
+    T: iter::Product<T> + Copy + Mul<Output = T> + One + Sub<Output = T> + Add<Output = T>,
+{
+    values
+        .iter()
+        .zip(weights)
+        .map(|(v, w)| (*v - T::one()) * *w + T::one())
+        .product()
+}
+struct ProdWindowType;
+impl<'a, T> WindowType<'a, T> for ProdWindowType
+where
+    T: NativeType + Float + Sum<T> + SubAssign + AddAssign + IsFloat,
+{
+    type Window = ProdWindow<'a, T>;
+    fn get_weight_computer() -> fn(&[T], &[T]) -> T {
+        compute_prod_weights
+    }
+    fn prepare_weights(weights: Vec<T>) -> Vec<T> {
+        <ProdWindowType as WindowType<T>>::normalize_weights(weights)
+    }
+}
+
+/*
 pub fn expanding_prod(
     input: &Series,
     min_periods: usize,
@@ -23,9 +75,8 @@ pub fn expanding_prod(
         }
     )
 }
-
+*/
 impl<'a, T: NativeType + IsFloat + Mul<Output = T> + Div<Output = T>> ProdWindow<'a, T> {
-    // compute sum from the entire window
     unsafe fn compute_prod_and_null_count(&mut self, start: usize, end: usize) -> Option<T> {
         let mut prod = None;
         let mut idx = start;

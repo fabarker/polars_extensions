@@ -1,16 +1,17 @@
 use std::fmt::Debug;
 use std::iter;
 use std::ops::Mul;
-
+use arrow::array::Array;
 use num_traits::{Num, NumCast, One, Zero};
 use polars::prelude::PolarsResult;
 use polars_arrow::array::{ArrayRef, PrimitiveArray};
 use polars_arrow::datatypes::ArrowDataType;
 use polars_arrow::legacy::utils::CustomIterTools;
 use polars_arrow::types::NativeType;
-
+use crate::rolling::sum::compute_sum_weights;
 use super::*;
 
+/*
 pub fn expanding_aggregator_no_nulls<'a, Agg, T>(
     values: &'a [T],
     validity: Option<&'a Bitmap>,
@@ -81,6 +82,7 @@ where
         validity.map(|b| b.into()),
     )))
 }
+ */
 
 fn get_validity(n: usize, t: usize) -> Option<MutableBitmap> {
     let mut bits = MutableBitmap::with_capacity(n);
@@ -89,44 +91,54 @@ fn get_validity(n: usize, t: usize) -> Option<MutableBitmap> {
     Some(bits)
 }
 
-pub(crate) fn compute_sum_weights<T>(values: &[T], weights: &[T]) -> T
+pub(super) fn calc_expanding_aggregator<'a, Agg, T>(
+    values: &'a [T],
+    validity: Option<&'a Bitmap>,
+    min_periods: usize,
+) -> ArrayRef
 where
-    T: iter::Sum<T> + Copy + Mul<Output = T>,
+    Agg: ExpandingAggWindow<'a, T>,
+    T: Debug + NativeType + Num,
 {
-    values.iter().zip(weights).map(|(v, w)| *v * *w).sum()
+    let len = values.len();
+    // Instantiate new window struct
+    let mut agg_window = unsafe { Agg::new(values, validity, 0, 1) };
+    let out = (1..=len).map(|idx| {
+        if idx < min_periods {
+            None
+        } else {
+            // SAFETY:
+            // we are in bounds
+            unsafe { agg_window.update(0, idx) }
+        }
+    });
+    let arr = PrimitiveArray::from_trusted_len_iter(out);
+    Box::new(arr)
 }
 
-pub(crate) fn compute_sum_weights_normalized<T>(values: &[T], weights: &[T]) -> T
+pub(super) fn calc_expanding_weighted_aggregator<T, Fa>(
+    values: &[T],
+    min_periods: usize,
+    aggregator: Fa,
+    weights: &[T],
+) -> ArrayRef
 where
-    T: iter::Sum<T> + Copy + Mul<Output = T> + Zero + One + std::ops::Div<Output = T>,
+    T: NativeType,
+    Fa: Fn(&[T], &[T]) -> T,
 {
-    assert!(!weights.is_empty(), "Weights array cannot be empty");
-    assert_eq!(
-        values.len(),
-        weights.len(),
-        "Values and weights must have the same length"
-    );
+    let len = values.len();
+    let out = (0..len)
+        .map(|idx| {
+            let vals = unsafe { values.get_unchecked(0..idx) };
 
-    // Calculate sum of weights
-    let sum: T = weights.iter().copied().fold(T::zero(), |acc, x| acc + x);
-    assert!(!sum.is_zero(), "Sum of weights cannot be zero");
+            aggregator(vals, weights)
+        })
+        .collect_trusted::<Vec<T>>();
 
-    // Calculate inverse of sum for normalization
-    let inv_sum = T::one() / sum;
-
-    // Multiply each value by its normalized weight and sum
-    values
-        .iter()
-        .zip(weights.iter())
-        .map(|(v, w)| *v * (*w * inv_sum))
-        .sum()
-}
-
-pub(super) fn coerce_weights<T: NumCast>(weights: &[f64]) -> Vec<T>
-where
-{
-    weights
-        .iter()
-        .map(|v| NumCast::from(*v).unwrap())
-        .collect::<Vec<_>>()
+    let validity = get_validity(len, min_periods);
+    Box::new(PrimitiveArray::new(
+        ArrowDataType::from(T::PRIMITIVE),
+        out.into(),
+        validity.map(|b| b.into()),
+    ))
 }

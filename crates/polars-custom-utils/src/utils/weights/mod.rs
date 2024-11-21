@@ -1,9 +1,20 @@
 use ndarray::{s, Array1};
+use num_traits::NumCast;
 use pyo3::{pyfunction, PyResult};
 use serde::Deserialize;
 use thiserror::Error;
 
 use crate::Utils;
+
+pub fn coerce_weights<T: NumCast>(weights: &[f64]) -> Vec<T>
+where
+{
+    weights
+        .iter()
+        .map(|v| NumCast::from(*v).unwrap())
+        .collect::<Vec<_>>()
+}
+
 
 #[derive(Debug, Copy, Clone, Deserialize)]
 #[serde(from = "(String, f32)")]

@@ -57,6 +57,11 @@ where
     fn get_weight_computer() -> fn(&[T], &[T]) -> T {
         compute_sum_weights
     }
+
+    fn prepare_weights(weights: Vec<T>) -> Vec<T> {
+        <MeanWindowType as WindowType<T>>::normalize_weights(weights)
+    }
+
 }
 
 impl<'a,

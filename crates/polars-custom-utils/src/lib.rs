@@ -1,5 +1,6 @@
 pub mod utils;
 
+use polars::prelude::polars_ensure;
 use pyo3::{pyfunction, PyResult};
 
 use crate::utils::weights::*;
@@ -11,8 +12,17 @@ impl Utils {
     pub fn exponential_weights(
         window: i32,
         weight_type: &ExponentialDecayType,
+        normalize: bool,
     ) -> Result<Vec<f64>, ExpWeightsError> {
         let half_life = weight_type.get_half_life()?;
-        exp_weights(window, Some(half_life))
+        let mut weights = exp_weights(window, Some(half_life))?;
+
+        if normalize {
+            let wsum: f64 = weights.iter().sum();
+            if wsum != 0.0 {
+                weights.iter_mut().for_each(|w| *w /= wsum);
+            }
+        }
+        Ok(weights)
     }
 }

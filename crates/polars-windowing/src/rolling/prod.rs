@@ -1,10 +1,75 @@
-use std::ops::{Div, Mul};
-
+use std::ops::{Add, Div, Mul, Sub};
+use num_traits::One;
 use polars::prelude::series::AsSeries;
 
 use super::*;
 use crate::{with_match_physical_float_polars_type, DataType};
 
+pub fn rolling_prod(
+    input: &Series,
+    window_size: usize,
+    min_periods: usize,
+    center: bool,
+    weights: Option<Vec<f64>>,
+) -> PolarsResult<Series> {
+
+    let s = input.as_series().to_float()?;
+    polars_core::with_match_physical_float_polars_type!(s.dtype(), |$T| {
+            let chk_arr: &ChunkedArray<$T> = s.as_ref().as_ref().as_ref();
+            apply_rolling_aggregator_chunked(
+                chk_arr,
+                window_size,
+                min_periods,
+                center,
+                weights,
+                &calc_rolling_prod,
+            )
+        })
+}
+
+fn calc_rolling_prod<T>(
+    arr: &PrimitiveArray<T>,
+    window_size: usize,
+    min_periods: usize,
+    center: bool,
+    weights: Option<&[f64]>,
+) -> ArrayRef
+where
+    T: NativeType + Float + Sum<T> + SubAssign + AddAssign + IsFloat + iter::Product,
+{
+    calc_rolling_generic::<T, ProdWindowType>(arr, window_size, min_periods, center, weights)
+}
+
+pub(crate) fn compute_prod_weights<T>(values: &[T], weights: &[T]) -> T
+where
+    T: iter::Product<T> + Copy + Mul<Output = T> + One + Sub<Output = T> + Add<Output = T>,
+{
+    values
+        .iter()
+        .zip(weights)
+        .map(|(v, w)| (*v - T::one()) * *w + T::one())
+        .product()
+}
+
+
+// Implement for Mean
+struct ProdWindowType;
+impl<'a, T> WindowType<'a, T> for ProdWindowType
+where
+    T: NativeType + Float + Sum<T> + SubAssign + AddAssign + IsFloat + iter::Product,
+{
+    type Window = ProdWindow<'a, T>;
+    fn get_weight_computer() -> fn(&[T], &[T]) -> T {
+        compute_prod_weights
+    }
+
+    fn prepare_weights(weights: Vec<T>) -> Vec<T> {
+        <ProdWindowType as WindowType<T>>::normalize_weights(weights)
+    }
+
+}
+
+/*
 pub fn rolling_prod(
     input: &Series,
     window_size: usize,
@@ -26,6 +91,8 @@ pub fn rolling_prod(
         }
     )
 }
+
+ */
 
 impl<'a, T: NativeType + IsFloat + Mul<Output = T> + Div<Output = T>> ProdWindow<'a, T> {
     // compute sum from the entire window

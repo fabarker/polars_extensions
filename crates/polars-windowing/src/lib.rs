@@ -186,7 +186,7 @@ impl<'a> ExponentiallyWeighted<'a> {
             },
             WindowType::Rolling(rolling) => {
                 let wts =
-                    Utils::exponential_weights(rolling.window as i32, &self.decay_type).unwrap();
+                    Utils::exponential_weights(rolling.window as i32, &self.decay_type, false).unwrap();
                 rolling_mean(
                     rolling.series,
                     rolling.window,
@@ -210,7 +210,7 @@ impl<'a> ExponentiallyWeighted<'a> {
             ),
             WindowType::Rolling(rolling) => {
                 let wts =
-                    Utils::exponential_weights(rolling.window as i32, &self.decay_type).unwrap();
+                    Utils::exponential_weights(rolling.window as i32, &self.decay_type, false).unwrap();
                 rolling_std(
                     rolling.series,
                     rolling.window,
@@ -234,7 +234,7 @@ impl<'a> ExponentiallyWeighted<'a> {
             ),
             WindowType::Rolling(rolling) => {
                 let wts =
-                    Utils::exponential_weights(rolling.window as i32, &self.decay_type).unwrap();
+                    Utils::exponential_weights(rolling.window as i32, &self.decay_type, false).unwrap();
                 rolling_var(
                     rolling.series,
                     rolling.window,
@@ -250,13 +250,13 @@ impl<'a> ExponentiallyWeighted<'a> {
         match &self.window_type {
             WindowType::Expanding(expanding) => {
                 let wts =
-                    Utils::exponential_weights(expanding.series.len() as i32, &self.decay_type)
+                    Utils::exponential_weights(expanding.series.len() as i32, &self.decay_type, false)
                         .unwrap();
                 expanding_prod(expanding.series, expanding.min_periods, Some(wts))
             },
             WindowType::Rolling(rolling) => {
                 let wts =
-                    Utils::exponential_weights(rolling.window as i32, &self.decay_type).unwrap();
+                    Utils::exponential_weights(rolling.window as i32, &self.decay_type, false).unwrap();
                 rolling_prod(
                     rolling.series,
                     rolling.window,
@@ -272,13 +272,13 @@ impl<'a> ExponentiallyWeighted<'a> {
         match &self.window_type {
             WindowType::Expanding(expanding) => {
                 let wts =
-                    Utils::exponential_weights(expanding.series.len() as i32, &self.decay_type)
+                    Utils::exponential_weights(expanding.series.len() as i32, &self.decay_type, false)
                         .unwrap();
                 expanding_cagr(expanding.series, expanding.min_periods, Some(wts))
             },
             WindowType::Rolling(rolling) => {
                 let wts =
-                    Utils::exponential_weights(rolling.window as i32, &self.decay_type).unwrap();
+                    Utils::exponential_weights(rolling.window as i32, &self.decay_type, false).unwrap();
                 rolling_cagr(
                     rolling.series,
                     rolling.window,

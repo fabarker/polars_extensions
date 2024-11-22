@@ -395,6 +395,10 @@ impl<'a> Expanding<'a> {
         expanding_mean(self.series, self.min_periods, self.weights.clone())
     }
 
+    pub fn prod(&self) -> PolarsResult<Series> {
+        expanding_prod(self.series, self.min_periods, self.weights.clone())
+    }
+
     pub fn std(&self) -> PolarsResult<Series> {
         expanding_std(self.series, self.min_periods, self.weights.clone())
     }

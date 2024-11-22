@@ -25,8 +25,10 @@ class ExponentialMoving(Window):
             self._decay = ("com", float(kwargs.pop("com")))
         elif "alpha" in kwargs.keys():
             self._decay = ("alpha", float(kwargs.pop("alpha")))
-        elif "half_life" in kwargs.keys():
-            self._decay = ("half_life", float(kwargs.pop("half_life")))
+        elif "half_life" in kwargs:
+            self._decay = ("halflife", float(kwargs.pop("half_life")))
+        elif "halflife" in kwargs:
+            self._decay = ("halflife", float(kwargs.pop("halflife")))
         elif "span" in kwargs.keys():
             self._decay = ("span", float(kwargs.pop("span")))
 

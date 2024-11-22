@@ -9,8 +9,13 @@ use pyo3::{pyfunction, pymodule, wrap_pyfunction, Bound, PyResult};
 use pyo3_polars::PolarsAllocator;
 
 #[pyfunction]
-pub fn exponential_weights(window: i32, half_life: f32) -> PyResult<Vec<f64>> {
-    Ok(Utils::exponential_weights(window, &ExponentialDecayType::HalfLife(half_life)).unwrap())
+pub fn exponential_weights(window: i32, half_life: f32, normalize: bool) -> PyResult<Vec<f64>> {
+    Ok(Utils::exponential_weights(
+        window,
+        &ExponentialDecayType::HalfLife(half_life),
+        normalize,
+    )
+    .unwrap())
 }
 
 #[pymodule]

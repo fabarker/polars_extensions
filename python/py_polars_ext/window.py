@@ -72,7 +72,7 @@ class Window(ABCWindow):
         from py_polars_ext.ewm import ExponentialMoving
 
         return ExponentialMoving(
-            window_type=self._winType, expr=self._expr, pars=self.pars
+            window_type=self._winType, expr=self._expr
         ).__call__(**kwargs | self.__dict__)
 
     def mean(self) -> pl.Expr:

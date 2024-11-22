@@ -15,7 +15,6 @@ where
         .collect::<Vec<_>>()
 }
 
-
 #[derive(Debug, Copy, Clone, Deserialize)]
 #[serde(from = "(String, f32)")]
 pub enum ExponentialDecayType {

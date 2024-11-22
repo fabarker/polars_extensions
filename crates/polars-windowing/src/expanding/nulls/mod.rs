@@ -4,8 +4,9 @@ use polars_arrow::array::{ArrayRef, PrimitiveArray};
 use polars_arrow::bitmap::{Bitmap, MutableBitmap};
 use polars_arrow::legacy::utils::CustomIterTools;
 use polars_arrow::types::NativeType;
-use crate::BitmapExt;
+
 use super::*;
+use crate::BitmapExt;
 
 /*
 pub fn expanding_aggregator_nulls<'a, Agg, T>(
@@ -128,7 +129,6 @@ pub(super) fn calc_expanding_weighted_aggregator<T, Fa>(
     aggregator: Fa,
     weights: &[T],
 ) -> ArrayRef
-
 where
     T: NativeType,
     Fa: Fn(&[T], &[T]) -> T,

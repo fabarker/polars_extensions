@@ -17,7 +17,7 @@ pub mod variance;
 use std::iter;
 use std::iter::Sum;
 use std::ops::{AddAssign, Div, DivAssign, MulAssign, SubAssign};
-use polars_utils::index::NullCount;
+
 use arrow::array::Array;
 use num_traits::{Float, Num, NumCast};
 use polars::datatypes::{Float32Type, Float64Type};
@@ -29,10 +29,12 @@ use polars_core::datatypes::DataType::{Float32, Float64};
 use polars_core::datatypes::PolarsNumericType;
 use polars_core::prelude::ChunkedArray;
 use polars_core::series::Series;
-use polars_utils::float::IsFloat;
-use crate::MyArrayExt;
-use crate::rolling::RollingAggWindow;
 use polars_custom_utils::utils::weights::coerce_weights;
+use polars_utils::float::IsFloat;
+use polars_utils::index::NullCount;
+
+use crate::rolling::RollingAggWindow;
+use crate::MyArrayExt;
 
 pub(super) struct SumSquaredWindow<'a, T> {
     slice: &'a [T],
@@ -137,22 +139,15 @@ fn apply_expanding_aggregator_chunked<T>(
     ca: &ChunkedArray<T>,
     min_periods: usize,
     weights: Option<Vec<f64>>,
-    aggregator_fn: &dyn Fn(
-        &PrimitiveArray<T::Native>,
-        usize,
-        Option<&[f64]>,
-    ) -> ArrayRef,
+    aggregator_fn: &dyn Fn(&PrimitiveArray<T::Native>, usize, Option<&[f64]>) -> ArrayRef,
 ) -> PolarsResult<Series>
 where
-    T: PolarsNumericType, <T as PolarsNumericType>::Native:Float
+    T: PolarsNumericType,
+    <T as PolarsNumericType>::Native: Float,
 {
     let ca = ca.rechunk();
     let arr = ca.downcast_iter().next().unwrap();
-    let arr = aggregator_fn(
-        &arr,
-        min_periods,
-        weights.as_deref(),
-    );
+    let arr = aggregator_fn(&arr, min_periods, weights.as_deref());
     Series::try_from((ca.name().clone(), arr))
 }
 
@@ -195,4 +190,3 @@ where
 }
 
  */
-

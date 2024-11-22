@@ -2,20 +2,21 @@ pub mod expanding;
 pub mod expr;
 pub mod rolling;
 
-use polars_core::prelude::UInt64Type;
 use std::iter;
 use std::iter::Sum;
 use std::ops::{AddAssign, Div, SubAssign};
+
 use arrow::datatypes::*;
 use num_traits::{Float, NumCast};
 use polars::prelude::*;
-use polars_arrow::array::{PrimitiveArray, Array};  // Change this import
+use polars_arrow::array::{Array, PrimitiveArray}; // Change this import
 use polars_arrow::bitmap::Bitmap;
 use polars_arrow::legacy::kernels::rolling::no_nulls::QuantileInterpolOptions;
 use polars_arrow::types::NativeType;
-use polars_utils::float::IsFloat;
+use polars_core::prelude::UInt64Type;
 use polars_custom_utils::utils::weights::ExponentialDecayType;
 use polars_custom_utils::Utils;
+use polars_utils::float::IsFloat;
 use serde::Deserialize;
 
 use crate::expanding::cagr::expanding_cagr;
@@ -43,7 +44,6 @@ use crate::rolling::sum::rolling_sum;
 use crate::rolling::variance::rolling_var;
 use crate::rolling::RollingAggWindow;
 
-
 trait MyArrayExt<T>
 where
     T: NativeType + Float + Sum<T> + SubAssign + AddAssign + IsFloat,
@@ -62,7 +62,11 @@ where
 
     fn has_nulls_in_range(&self, start: usize, end: usize) -> bool {
         if let Some(valid) = self.validity() {
-            valid.iter().skip(start).take(end - start).any(|is_valid| !is_valid)
+            valid
+                .iter()
+                .skip(start)
+                .take(end - start)
+                .any(|is_valid| !is_valid)
         } else {
             false
         }
@@ -75,7 +79,10 @@ trait BitmapExt {
 
 impl BitmapExt for Bitmap {
     fn has_nulls_in_range(&self, start: usize, end: usize) -> bool {
-        self.iter().skip(start).take(end - start).any(|is_valid| !is_valid)
+        self.iter()
+            .skip(start)
+            .take(end - start)
+            .any(|is_valid| !is_valid)
     }
 }
 
@@ -232,7 +239,8 @@ impl<'a> ExponentiallyWeighted<'a> {
             },
             WindowType::Rolling(rolling) => {
                 let wts =
-                    Utils::exponential_weights(rolling.window as i32, &self.decay_type, false).unwrap();
+                    Utils::exponential_weights(rolling.window as i32, &self.decay_type, false)
+                        .unwrap();
                 rolling_mean(
                     rolling.series,
                     rolling.window,
@@ -256,7 +264,8 @@ impl<'a> ExponentiallyWeighted<'a> {
             ),
             WindowType::Rolling(rolling) => {
                 let wts =
-                    Utils::exponential_weights(rolling.window as i32, &self.decay_type, false).unwrap();
+                    Utils::exponential_weights(rolling.window as i32, &self.decay_type, false)
+                        .unwrap();
                 rolling_std(
                     rolling.series,
                     rolling.window,
@@ -280,7 +289,8 @@ impl<'a> ExponentiallyWeighted<'a> {
             ),
             WindowType::Rolling(rolling) => {
                 let wts =
-                    Utils::exponential_weights(rolling.window as i32, &self.decay_type, false).unwrap();
+                    Utils::exponential_weights(rolling.window as i32, &self.decay_type, false)
+                        .unwrap();
                 rolling_var(
                     rolling.series,
                     rolling.window,
@@ -295,14 +305,18 @@ impl<'a> ExponentiallyWeighted<'a> {
     pub fn prod(&self) -> PolarsResult<Series> {
         match &self.window_type {
             WindowType::Expanding(expanding) => {
-                let wts =
-                    Utils::exponential_weights(expanding.series.len() as i32, &self.decay_type, false)
-                        .unwrap();
+                let wts = Utils::exponential_weights(
+                    expanding.series.len() as i32,
+                    &self.decay_type,
+                    false,
+                )
+                .unwrap();
                 expanding_prod(expanding.series, expanding.min_periods, Some(wts))
             },
             WindowType::Rolling(rolling) => {
                 let wts =
-                    Utils::exponential_weights(rolling.window as i32, &self.decay_type, false).unwrap();
+                    Utils::exponential_weights(rolling.window as i32, &self.decay_type, false)
+                        .unwrap();
                 rolling_prod(
                     rolling.series,
                     rolling.window,
@@ -317,14 +331,18 @@ impl<'a> ExponentiallyWeighted<'a> {
     pub fn cagr(&self) -> PolarsResult<Series> {
         match &self.window_type {
             WindowType::Expanding(expanding) => {
-                let wts =
-                    Utils::exponential_weights(expanding.series.len() as i32, &self.decay_type, false)
-                        .unwrap();
+                let wts = Utils::exponential_weights(
+                    expanding.series.len() as i32,
+                    &self.decay_type,
+                    false,
+                )
+                .unwrap();
                 expanding_cagr(expanding.series, expanding.min_periods, Some(wts))
             },
             WindowType::Rolling(rolling) => {
                 let wts =
-                    Utils::exponential_weights(rolling.window as i32, &self.decay_type, false).unwrap();
+                    Utils::exponential_weights(rolling.window as i32, &self.decay_type, false)
+                        .unwrap();
                 rolling_cagr(
                     rolling.series,
                     rolling.window,

@@ -1,25 +1,25 @@
 use std::ops::{Add, Mul, Sub};
-use polars_core::datatypes::{Float32Type, Float64Type};
-use polars::prelude::series::AsSeries;
-use super::*;
 
+use polars::prelude::series::AsSeries;
+use polars_core::datatypes::{Float32Type, Float64Type};
+
+use super::*;
 
 pub fn expanding_sum(
     input: &Series,
     min_periods: usize,
     weights: Option<Vec<f64>>,
 ) -> PolarsResult<Series> {
-
     let s = input.as_series().to_float()?;
     polars_core::with_match_physical_float_polars_type!(s.dtype(), |$T| {
-            let chk_arr: &ChunkedArray<$T> = s.as_ref().as_ref().as_ref();
-            apply_expanding_aggregator_chunked(
-                chk_arr,
-                min_periods,
-                weights,
-                &calc_expanding_sum,
-            )
-        })
+        let chk_arr: &ChunkedArray<$T> = s.as_ref().as_ref().as_ref();
+        apply_expanding_aggregator_chunked(
+            chk_arr,
+            min_periods,
+            weights,
+            &calc_expanding_sum,
+        )
+    })
 }
 
 fn calc_expanding_sum<T>(
@@ -40,7 +40,6 @@ where
     values.iter().zip(weights).map(|(v, w)| *v * *w).sum()
 }
 
-
 // Implement for Mean
 struct SumWindowType;
 impl<'a, T> WindowType<'a, T> for SumWindowType
@@ -55,7 +54,6 @@ where
     fn prepare_weights(weights: Vec<T>) -> Vec<T> {
         weights
     }
-
 }
 
 /*

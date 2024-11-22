@@ -8,8 +8,9 @@ use polars_arrow::array::{ArrayRef, PrimitiveArray};
 use polars_arrow::datatypes::ArrowDataType;
 use polars_arrow::legacy::utils::CustomIterTools;
 use polars_arrow::types::NativeType;
-use crate::rolling::sum::compute_sum_weights;
+
 use super::*;
+use crate::rolling::sum::compute_sum_weights;
 
 pub fn rolling_aggregator_no_nulls<'a, Agg, T>(
     values: &'a [T],
@@ -188,10 +189,7 @@ where
     let mut agg_window = unsafe { Agg::new(values, validity, start, end) };
     if let Some(validity) = create_validity(min_periods, len, window_size, &det_offsets_fn) {
         if validity.iter().all(|x| !x) {
-            return Box::new(PrimitiveArray::<T>::new_null(
-                T::PRIMITIVE.into(),
-                len,
-            ));
+            return Box::new(PrimitiveArray::<T>::new_null(T::PRIMITIVE.into(), len));
         }
     }
 
@@ -240,5 +238,3 @@ where
         Some(validity.into()),
     ))
 }
-
-

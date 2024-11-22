@@ -1,6 +1,8 @@
 use std::ops::{Add, Sub};
+
 use polars::prelude::{PolarsResult, SeriesSealed};
 use polars_core::prelude::Series;
+
 use crate::expanding::prod::expanding_prod;
 
 pub fn expanding_cagr(

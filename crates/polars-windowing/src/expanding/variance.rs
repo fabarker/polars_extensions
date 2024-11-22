@@ -1,27 +1,27 @@
 use std::fmt::Debug;
 use std::ops::{Add, Mul, Sub};
+
 use num::{Float, One, Zero};
 use polars::prelude::series::AsSeries;
 use polars_core::datatypes::{Float32Type, Float64Type};
-use super::*;
 
+use super::*;
 
 pub fn expanding_var(
     input: &Series,
     min_periods: usize,
     weights: Option<Vec<f64>>,
 ) -> PolarsResult<Series> {
-
     let s = input.as_series().to_float()?;
     polars_core::with_match_physical_float_polars_type!(s.dtype(), |$T| {
-            let chk_arr: &ChunkedArray<$T> = s.as_ref().as_ref().as_ref();
-            apply_expanding_aggregator_chunked(
-                chk_arr,
-                min_periods,
-                weights,
-                &calc_expanding_var,
-            )
-        })
+        let chk_arr: &ChunkedArray<$T> = s.as_ref().as_ref().as_ref();
+        apply_expanding_aggregator_chunked(
+            chk_arr,
+            min_periods,
+            weights,
+            &calc_expanding_var,
+        )
+    })
 }
 
 fn calc_expanding_var<T>(
@@ -34,7 +34,6 @@ where
 {
     calc_expanding_generic::<T, VarWindowType>(arr, min_periods, weights)
 }
-
 
 fn compute_var_weights<T>(vals: &[T], weights: &[T]) -> T
 where
@@ -56,8 +55,6 @@ where
 
     wssq - wmean * wmean
 }
-
-
 
 // Implement for Mean
 struct VarWindowType;
@@ -125,10 +122,8 @@ impl<'a, T: NativeType + IsFloat + Add<Output = T> + Sub<Output = T> + Mul<Outpu
     }
 }
 
-impl<
-    'a,
-    T: NativeType + IsFloat + Mul<Output = T> + Add<Output = T> + Sub<Output = T> + Sum,
-    > ExpandingAggWindow<'a, T> for SumSquaredWindow<'a, T>
+impl<'a, T: NativeType + IsFloat + Mul<Output = T> + Add<Output = T> + Sub<Output = T> + Sum>
+    ExpandingAggWindow<'a, T> for SumSquaredWindow<'a, T>
 {
     unsafe fn update(&mut self, start: usize, end: usize) -> Option<T> {
         if self.null_count > 0 {

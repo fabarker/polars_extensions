@@ -1,8 +1,10 @@
-use super::*;
 use std::ops::{Add, Div, Mul, Sub};
+
 use num_traits::Float;
 use polars::prelude::series::AsSeries;
 use polars_arrow::array::{ArrayRef, PrimitiveArray};
+
+use super::*;
 
 pub fn rolling_mean(
     input: &Series,
@@ -11,19 +13,18 @@ pub fn rolling_mean(
     center: bool,
     weights: Option<Vec<f64>>,
 ) -> PolarsResult<Series> {
-
     let s = input.as_series().to_float()?;
     polars_core::with_match_physical_float_polars_type!(s.dtype(), |$T| {
-            let chk_arr: &ChunkedArray<$T> = s.as_ref().as_ref().as_ref();
-            apply_rolling_aggregator_chunked(
-                chk_arr,
-                window_size,
-                min_periods,
-                center,
-                weights,
-                &calc_rolling_mean,
-            )
-        })
+        let chk_arr: &ChunkedArray<$T> = s.as_ref().as_ref().as_ref();
+        apply_rolling_aggregator_chunked(
+            chk_arr,
+            window_size,
+            min_periods,
+            center,
+            weights,
+            &calc_rolling_mean,
+        )
+    })
 }
 
 fn calc_rolling_mean<T>(
@@ -46,7 +47,6 @@ where
     values.iter().zip(weights).map(|(v, w)| *v * *w).sum()
 }
 
-
 // Implement for Mean
 struct MeanWindowType;
 impl<'a, T> WindowType<'a, T> for MeanWindowType
@@ -61,17 +61,17 @@ where
     fn prepare_weights(weights: Vec<T>) -> Vec<T> {
         <MeanWindowType as WindowType<T>>::normalize_weights(weights)
     }
-
 }
 
-impl<'a,
-    T: NativeType
-    + IsFloat
-    + Div<Output = T>
-    + Add<Output = T>
-    + Sub<Output = T>
-    + iter::Sum
-    + NumCast,
+impl<
+        'a,
+        T: NativeType
+            + IsFloat
+            + Div<Output = T>
+            + Add<Output = T>
+            + Sub<Output = T>
+            + iter::Sum
+            + NumCast,
     > RollingAggWindow<'a, T> for MeanWindow<'a, T>
 {
     unsafe fn update(&mut self, start: usize, end: usize) -> Option<T> {

@@ -1,24 +1,25 @@
 use std::ops::{Add, Div, Mul, Sub};
+
 use polars::prelude::series::AsSeries;
-use super::*;
 use polars_core::datatypes::{DataType, Float32Type, Float64Type};
+
+use super::*;
 
 pub fn expanding_mean(
     input: &Series,
     min_periods: usize,
     weights: Option<Vec<f64>>,
 ) -> PolarsResult<Series> {
-
     let s = input.as_series().to_float()?;
     polars_core::with_match_physical_float_polars_type!(s.dtype(), |$T| {
-            let chk_arr: &ChunkedArray<$T> = s.as_ref().as_ref().as_ref();
-            apply_expanding_aggregator_chunked(
-                chk_arr,
-                min_periods,
-                weights,
-                &calc_expanding_mean,
-            )
-        })
+        let chk_arr: &ChunkedArray<$T> = s.as_ref().as_ref().as_ref();
+        apply_expanding_aggregator_chunked(
+            chk_arr,
+            min_periods,
+            weights,
+            &calc_expanding_mean,
+        )
+    })
 }
 
 fn calc_expanding_mean<T>(
@@ -39,7 +40,6 @@ where
     values.iter().zip(weights).map(|(v, w)| *v * *w).sum()
 }
 
-
 // Implement for Mean
 struct MeanWindowType;
 impl<'a, T> WindowType<'a, T> for MeanWindowType
@@ -54,9 +54,7 @@ where
     fn prepare_weights(weights: Vec<T>) -> Vec<T> {
         <MeanWindowType as WindowType<T>>::normalize_weights(weights)
     }
-
 }
-
 
 /*
 pub fn expanding_mean(
@@ -79,14 +77,9 @@ pub fn expanding_mean(
 
  */
 
-impl<'a,
-    T: NativeType
-    + IsFloat
-    + Div<Output = T>
-    + Add<Output = T>
-    + Sub<Output = T>
-    + Sum
-    + NumCast,
+impl<
+        'a,
+        T: NativeType + IsFloat + Div<Output = T> + Add<Output = T> + Sub<Output = T> + Sum + NumCast,
     > ExpandingAggWindow<'a, T> for MeanWindow<'a, T>
 {
     unsafe fn update(&mut self, start: usize, end: usize) -> Option<T> {

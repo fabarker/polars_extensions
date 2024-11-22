@@ -12,19 +12,18 @@ pub fn rolling_var(
     center: bool,
     weights: Option<Vec<f64>>,
 ) -> PolarsResult<Series> {
-
     let s = input.as_series().to_float()?;
     polars_core::with_match_physical_float_polars_type!(s.dtype(), |$T| {
-            let chk_arr: &ChunkedArray<$T> = s.as_ref().as_ref().as_ref();
-            apply_rolling_aggregator_chunked(
-                chk_arr,
-                window_size,
-                min_periods,
-                center,
-                weights,
-                &calc_rolling_var,
-            )
-        })
+        let chk_arr: &ChunkedArray<$T> = s.as_ref().as_ref().as_ref();
+        apply_rolling_aggregator_chunked(
+            chk_arr,
+            window_size,
+            min_periods,
+            center,
+            weights,
+            &calc_rolling_var,
+        )
+    })
 }
 
 fn calc_rolling_var<T>(
@@ -61,7 +60,6 @@ where
     wssq - wmean * wmean
 }
 
-
 // Implement for Mean
 struct VarWindowType;
 impl<'a, T> WindowType<'a, T> for VarWindowType
@@ -77,7 +75,6 @@ where
         <VarWindowType as WindowType<T>>::normalize_weights(weights)
     }
 }
-
 
 /*
 pub fn rolling_var(
@@ -132,8 +129,9 @@ impl<'a, T: NativeType + IsFloat + Add<Output = T> + Sub<Output = T> + Mul<Outpu
     }
 }
 
-impl<'a,
-    T: NativeType + IsFloat + Mul<Output = T> + Add<Output = T> + Sub<Output = T> + iter::Sum,
+impl<
+        'a,
+        T: NativeType + IsFloat + Mul<Output = T> + Add<Output = T> + Sub<Output = T> + iter::Sum,
     > RollingAggWindow<'a, T> for SumSquaredWindow<'a, T>
 {
     unsafe fn update(&mut self, start: usize, end: usize) -> Option<T> {
@@ -278,7 +276,8 @@ impl<'a,
     }
 }
 
-impl<'a,
+impl<
+        'a,
         T: Zero
             + One
             + Float

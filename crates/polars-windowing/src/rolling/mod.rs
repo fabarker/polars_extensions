@@ -1,8 +1,8 @@
 use std::fmt::Debug;
 use std::iter;
 use std::iter::Sum;
-use polars_utils::index::NullCount;
 use std::ops::{AddAssign, Div, DivAssign, MulAssign, SubAssign};
+
 use num_traits::{Float, Num, NumCast};
 use polars::datatypes::{Float32Type, Float64Type};
 use polars::prelude::PolarsResult;
@@ -13,8 +13,10 @@ use polars_core::datatypes::DataType::{Float32, Float64};
 use polars_core::datatypes::PolarsNumericType;
 use polars_core::prelude::ChunkedArray;
 use polars_core::series::Series;
-use polars_utils::float::IsFloat;
 use polars_custom_utils::utils::weights::coerce_weights;
+use polars_utils::float::IsFloat;
+use polars_utils::index::NullCount;
+
 use crate::MyArrayExt;
 
 pub mod cagr;
@@ -148,9 +150,6 @@ where
     }
 }
 
-
-
-
 /*
 fn rolling_aggregator<'a, Agg, T, U>(
     ca: &'a ChunkedArray<U>,
@@ -198,8 +197,6 @@ where
 
  */
 
-
-
 fn apply_rolling_aggregator_chunked<T>(
     ca: &ChunkedArray<T>,
     window_size: usize,
@@ -215,18 +212,12 @@ fn apply_rolling_aggregator_chunked<T>(
     ) -> ArrayRef,
 ) -> PolarsResult<Series>
 where
-    T: PolarsNumericType, <T as PolarsNumericType>::Native:Float
+    T: PolarsNumericType,
+    <T as PolarsNumericType>::Native: Float,
 {
-
     let ca = ca.rechunk();
     let arr = ca.downcast_iter().next().unwrap();
-    let arr = aggregator_fn(
-        &arr,
-        window_size,
-        min_periods,
-        center,
-        weights.as_deref(),
-    );
+    let arr = aggregator_fn(&arr, window_size, min_periods, center, weights.as_deref());
     Series::try_from((ca.name().clone(), arr))
 }
 
@@ -243,7 +234,6 @@ trait WindowType<'a, T: NativeType> {
         weights.iter_mut().for_each(|w| *w = *w / wsum);
         weights
     }
-
 }
 
 type OffsetFn = fn(usize, usize, usize) -> (usize, usize);

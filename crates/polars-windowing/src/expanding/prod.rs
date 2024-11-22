@@ -1,8 +1,10 @@
 use std::fmt::Debug;
 use std::ops::{Add, Div, Mul, Sub};
+
 use num_traits::One;
-use polars_core::datatypes::{Float32Type, Float64Type};
 use polars::prelude::series::AsSeries;
+use polars_core::datatypes::{Float32Type, Float64Type};
+
 use super::*;
 
 pub fn expanding_prod(
@@ -12,14 +14,14 @@ pub fn expanding_prod(
 ) -> PolarsResult<Series> {
     let s = input.as_series().to_float()?;
     polars_core::with_match_physical_float_polars_type!(s.dtype(), |$T| {
-            let chk_arr: &ChunkedArray<$T> = s.as_ref().as_ref().as_ref();
-            apply_expanding_aggregator_chunked(
-                chk_arr,
-                min_periods,
-                weights,
-                &calc_expanding_prod,
-            )
-        })
+        let chk_arr: &ChunkedArray<$T> = s.as_ref().as_ref().as_ref();
+        apply_expanding_aggregator_chunked(
+            chk_arr,
+            min_periods,
+            weights,
+            &calc_expanding_prod,
+        )
+    })
 }
 
 fn calc_expanding_prod<T>(

@@ -1,4 +1,5 @@
 use std::ops::{Add, Div, Mul, Sub};
+
 use num_traits::One;
 use polars::prelude::series::AsSeries;
 
@@ -11,19 +12,18 @@ pub fn rolling_prod(
     center: bool,
     weights: Option<Vec<f64>>,
 ) -> PolarsResult<Series> {
-
     let s = input.as_series().to_float()?;
     polars_core::with_match_physical_float_polars_type!(s.dtype(), |$T| {
-            let chk_arr: &ChunkedArray<$T> = s.as_ref().as_ref().as_ref();
-            apply_rolling_aggregator_chunked(
-                chk_arr,
-                window_size,
-                min_periods,
-                center,
-                weights,
-                &calc_rolling_prod,
-            )
-        })
+        let chk_arr: &ChunkedArray<$T> = s.as_ref().as_ref().as_ref();
+        apply_rolling_aggregator_chunked(
+            chk_arr,
+            window_size,
+            min_periods,
+            center,
+            weights,
+            &calc_rolling_prod,
+        )
+    })
 }
 
 fn calc_rolling_prod<T>(
@@ -50,7 +50,6 @@ where
         .product()
 }
 
-
 // Implement for Mean
 struct ProdWindowType;
 impl<'a, T> WindowType<'a, T> for ProdWindowType
@@ -65,7 +64,6 @@ where
     fn prepare_weights(weights: Vec<T>) -> Vec<T> {
         weights
     }
-
 }
 
 /*

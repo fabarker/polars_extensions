@@ -2,8 +2,8 @@ use polars::prelude::{DataFrame, SerReader, *};
 use polars_arrow::legacy::kernels::rolling::no_nulls::QuantileInterpolOptions;
 use polars_arrow::legacy::kernels::rolling::RollingQuantileParams;
 use polars_core::prelude::*;
-use polars_custom_utils::Utils;
 use polars_custom_utils::utils::weights::ExponentialDecayType;
+use polars_custom_utils::Utils;
 use polars_windowing::expr::MyCustomTrait;
 use polars_windowing::{ExpandingParams, RollingExpandingType, SeriesRollingExt, WindowParams};
 
@@ -46,15 +46,18 @@ fn main() -> PolarsResult<()> {
     let wts = Utils::exponential_weights(504, &decay, false).unwrap();
     dbg!(&wts);
 
-
-
-    let mut chunked = ts.column("asset_returns")?.f64()?.into_iter().collect::<Vec<Option<f64>>>();
+    let mut chunked = ts
+        .column("asset_returns")?
+        .f64()?
+        .into_iter()
+        .collect::<Vec<Option<f64>>>();
     let new_series = Series::new("data".into(), chunked);
     dbg!(&new_series);
     let s = new_series
-                        .shift(20)
-                        .rolling(504)
-                            .with_weights(Option::from(wts)).cagr();
+        .shift(20)
+        .rolling(504)
+        .with_weights(Option::from(wts))
+        .cagr();
     dbg!(&s);
 
     Ok(())

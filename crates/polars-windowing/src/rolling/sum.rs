@@ -11,19 +11,18 @@ pub fn rolling_sum(
     center: bool,
     weights: Option<Vec<f64>>,
 ) -> PolarsResult<Series> {
-
     let s = input.as_series().to_float()?;
     polars_core::with_match_physical_float_polars_type!(s.dtype(), |$T| {
-            let chk_arr: &ChunkedArray<$T> = s.as_ref().as_ref().as_ref();
-            apply_rolling_aggregator_chunked(
-                chk_arr,
-                window_size,
-                min_periods,
-                center,
-                weights,
-                &calc_rolling_sum,
-            )
-        })
+        let chk_arr: &ChunkedArray<$T> = s.as_ref().as_ref().as_ref();
+        apply_rolling_aggregator_chunked(
+            chk_arr,
+            window_size,
+            min_periods,
+            center,
+            weights,
+            &calc_rolling_sum,
+        )
+    })
 }
 
 fn calc_rolling_sum<T>(
@@ -46,7 +45,6 @@ where
     values.iter().zip(weights).map(|(v, w)| *v * *w).sum()
 }
 
-
 // Implement for Mean
 struct SumWindowType;
 impl<'a, T> WindowType<'a, T> for SumWindowType
@@ -61,7 +59,6 @@ where
     fn prepare_weights(weights: Vec<T>) -> Vec<T> {
         weights
     }
-
 }
 
 /*

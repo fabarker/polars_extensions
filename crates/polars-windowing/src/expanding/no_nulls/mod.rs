@@ -1,6 +1,7 @@
 use std::fmt::Debug;
 use std::iter;
 use std::ops::Mul;
+
 use arrow::array::Array;
 use num_traits::{Num, NumCast, One, Zero};
 use polars::prelude::PolarsResult;
@@ -8,8 +9,9 @@ use polars_arrow::array::{ArrayRef, PrimitiveArray};
 use polars_arrow::datatypes::ArrowDataType;
 use polars_arrow::legacy::utils::CustomIterTools;
 use polars_arrow::types::NativeType;
-use crate::rolling::sum::compute_sum_weights;
+
 use super::*;
+use crate::rolling::sum::compute_sum_weights;
 
 /*
 pub fn expanding_aggregator_no_nulls<'a, Agg, T>(

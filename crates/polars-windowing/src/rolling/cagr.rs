@@ -1,6 +1,8 @@
 use std::ops::{Add, Sub};
+
 use polars::prelude::{PolarsResult, SeriesSealed};
 use polars_core::prelude::{RollingOptionsFixedWindow, Series};
+
 use crate::rolling::prod::rolling_prod;
 
 pub fn rolling_cagr_with_opts(

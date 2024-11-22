@@ -5,6 +5,8 @@ on:
     branches:
       - main
       - master
+      - dev
+      - prod-staging
     tags:
       - '*'
   pull_request:

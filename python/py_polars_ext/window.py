@@ -64,8 +64,9 @@ class Window(ABCWindow):
         return pl_plugin(
             args=[self._expr, pl.lit(func)],
             symbol=self._symbol,
-            is_elementwise=True,
+            is_elementwise=False,
             kwargs=self.params(),
+            pass_name_to_apply=True,
         )
 
     def ewm(self, **kwargs):

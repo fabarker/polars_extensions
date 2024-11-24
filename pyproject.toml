@@ -6,7 +6,7 @@ build-backend = "maturin"
 name = "polars-extensions"
 requires-python = ">=3.8"
 dependencies = [
-  "polars >= 0.20.16, !=1.3.0",
+  "polars < 1.1.0, >=1.0.0",
   "pyarrow == 18.0.0",
   "numpy >= 1.26.2, <1.27.0",
   "pandas == 2.2.3",

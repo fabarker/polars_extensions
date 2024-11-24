@@ -328,7 +328,7 @@ impl<'a> ExponentiallyWeighted<'a> {
         }
     }
 
-    pub fn cagr(&self) -> PolarsResult<Series> {
+    pub fn cagr(&self, returns_type: &str) -> PolarsResult<Series> {
         match &self.window_type {
             WindowType::Expanding(expanding) => {
                 let wts = Utils::exponential_weights(
@@ -337,7 +337,7 @@ impl<'a> ExponentiallyWeighted<'a> {
                     false,
                 )
                 .unwrap();
-                expanding_cagr(expanding.series, expanding.min_periods, Some(wts))
+                expanding_cagr(expanding.series, expanding.min_periods, Some(wts), returns_type)
             },
             WindowType::Rolling(rolling) => {
                 let wts =
@@ -349,6 +349,7 @@ impl<'a> ExponentiallyWeighted<'a> {
                     rolling.min_periods,
                     rolling.center,
                     Some(wts),
+                    returns_type
                 )
             },
         }
@@ -450,8 +451,8 @@ impl<'a> Expanding<'a> {
         )
     }
 
-    pub fn cagr(&self) -> PolarsResult<Series> {
-        expanding_cagr(self.series, self.min_periods, self.weights.clone())
+    pub fn cagr(&self, returns_type: &str) -> PolarsResult<Series> {
+        expanding_cagr(self.series, self.min_periods, self.weights.clone(), returns_type)
     }
 
     pub fn median(&self) -> PolarsResult<Series> {
@@ -621,13 +622,14 @@ impl<'a> Rolling<'a> {
         rolling_kurtosis(self.series, self.window, self.min_periods, self.center)
     }
 
-    pub fn cagr(&self) -> PolarsResult<Series> {
+    pub fn cagr(&self, returns_type: &str) -> PolarsResult<Series> {
         rolling_cagr(
             self.series,
             self.window,
             self.min_periods,
             self.center,
             self.weights.clone(),
+            returns_type,
         )
     }
 }

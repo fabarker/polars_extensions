@@ -9,6 +9,7 @@ pub fn expanding_cagr(
     input: &Series,
     min_periods: usize,
     weights: Option<Vec<f64>>,
+    return_type: &str,
 ) -> PolarsResult<Series> {
     let s = &input.as_series().add(1.0);
     let mut prod = expanding_prod(s, min_periods, weights)?;

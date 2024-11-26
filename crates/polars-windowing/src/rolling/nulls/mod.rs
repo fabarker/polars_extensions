@@ -5,7 +5,7 @@ use polars_arrow::array::{ArrayRef, PrimitiveArray};
 use polars_arrow::bitmap::{Bitmap, MutableBitmap};
 use polars_arrow::legacy::utils::CustomIterTools;
 use polars_arrow::types::NativeType;
-
+use polars_custom_utils::utils::weights::ExponentialDecayType;
 use super::*;
 use crate::rolling::{End, Idx, Len, Start, WindowSize};
 use crate::BitmapExt;
@@ -193,4 +193,61 @@ where
         })
         .collect_trusted::<PrimitiveArray<_>>();
     Box::new(out)
+}
+
+
+pub(super) fn calc_ew_rolling_aggregator<'a, Agg, T, Fo>(
+    values: &'a [T],
+    validity: Option<&'a Bitmap>,
+    window_size: usize,
+    min_periods: usize,
+    det_offsets_fn: Fo,
+    decay_type: &'a ExponentialWeights<T>,
+) -> ArrayRef
+where
+    Fo: Fn(Idx, WindowSize, Len) -> (Start, End) + Copy,
+    Agg: EWRollingAggWindow<'a, T>,
+    T: IsFloat + NativeType,
+{
+    let len = values.len();
+    let (start, end) = det_offsets_fn(0, window_size, len);
+    let mut agg_window = unsafe { Agg::new(values, validity, start, end, decay_type) };
+
+    let mut validity = create_validity(min_periods, len, window_size, det_offsets_fn)
+        .unwrap_or_else(|| {
+            let mut validity = MutableBitmap::with_capacity(len);
+            validity.extend_constant(len, true);
+            validity
+        });
+
+    let out = (0..len)
+        .map(|idx| {
+            let (start, end) = det_offsets_fn(idx, window_size, len);
+            // SAFETY:
+            // we are in bounds
+            let agg = unsafe { agg_window.update(start, end) };
+            match agg {
+                Some(val) => {
+                    if agg_window.is_valid(min_periods) {
+                        val
+                    } else {
+                        // SAFETY: we are in bounds
+                        unsafe { validity.set_unchecked(idx, false) };
+                        T::default()
+                    }
+                },
+                None => {
+                    // SAFETY: we are in bounds
+                    unsafe { validity.set_unchecked(idx, false) };
+                    T::default()
+                },
+            }
+        })
+        .collect_trusted::<Vec<_>>();
+
+    Box::new(PrimitiveArray::new(
+        T::PRIMITIVE.into(),
+        out.into(),
+        Some(validity.into()),
+    ))
 }

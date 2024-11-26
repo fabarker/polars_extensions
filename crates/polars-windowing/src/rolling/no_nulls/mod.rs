@@ -207,6 +207,43 @@ where
     Box::new(arr)
 }
 
+pub(super) fn calc_ew_rolling_aggregator<'a, Agg, T, Fo>(
+    values: &'a [T],
+    validity: Option<&'a Bitmap>,
+    window_size: usize,
+    min_periods: usize,
+    det_offsets_fn: Fo,
+    weights: &'a ExponentialWeights<T>,
+) -> ArrayRef
+where
+    Fo: Fn(Idx, WindowSize, Len) -> (Start, End),
+    Agg: EWRollingAggWindow<'a, T>,
+    T: Debug + NativeType + Num,
+{
+    let len = values.len();
+    let (start, end) = det_offsets_fn(0, window_size, len);
+    let mut agg_window = unsafe { Agg::new(values, validity, start, end, weights) };
+
+    if let Some(validity) = create_validity(min_periods, len, window_size, &det_offsets_fn) {
+        if validity.iter().all(|x| !x) {
+            return Box::new(PrimitiveArray::<T>::new_null(T::PRIMITIVE.into(), len));
+        }
+    }
+
+    let out = (0..len).map(|idx| {
+        let (start, end) = det_offsets_fn(idx, window_size, len);
+        let agg = unsafe { agg_window.update(start, end) };
+        if end - start < min_periods {
+            None
+        } else {
+            agg
+        }
+    });
+    let arr = PrimitiveArray::from_trusted_len_iter(out);
+    Box::new(arr)
+}
+
+
 pub(super) fn calc_rolling_weighted_aggregator<T, Fo, Fa>(
     values: &[T],
     window_size: usize,

@@ -1,5 +1,7 @@
+use std::iter;
+use std::ops::{Add, Div, DivAssign, Mul, Sub};
 use ndarray::{s, Array1};
-use num_traits::NumCast;
+use num_traits::{NumCast, Zero};
 use pyo3::{pyfunction, PyResult};
 use serde::Deserialize;
 use thiserror::Error;
@@ -13,6 +15,98 @@ where
         .iter()
         .map(|v| NumCast::from(*v).unwrap())
         .collect::<Vec<_>>()
+}
+
+#[derive(Debug, Clone)]
+pub struct ExponentialWeights<T> {
+    weights: Vec<T>, // Use Vec<T> instead of Vec<f64>
+    decay_type: ExponentialDecayType,
+    normalized: bool,
+    pub normalizer: T,
+}
+
+impl<T> ExponentialWeights<T>
+where
+    T: Copy
+    + Add<Output = T>
+    + Sub<Output = T>
+    + Mul<Output = T>
+    + Div<Output = T>
+    + DivAssign
+    + NumCast
+    + Zero
+    + iter::Sum
+    + PartialEq,
+{
+    pub fn new(
+        decay_type: ExponentialDecayType,
+        periods: i32, normalized: bool)
+        -> Self {
+        let mut weights = Self {
+            weights: Vec::new(),
+            decay_type,
+            normalized,
+            normalizer: NumCast::from(decay_type.get_normalizer()).unwrap(),
+        };
+        weights.construct_weights(periods);
+        weights
+    }
+
+    pub fn normalize(&mut self) -> &mut Self {
+        let wsum: &T = &self.weights.iter().copied().sum();
+        if *wsum != T::zero() {
+            self.weights.iter_mut().for_each(|w| *w /= *wsum);
+        }
+        self.normalized = true;
+        self
+    }
+
+    pub fn coerce_weights<U: NumCast>(weights: &[f64]) -> Vec<U> {
+        weights
+            .iter()
+            .map(|v| NumCast::from(*v).unwrap()) // Convert `f64` to `U`
+            .collect::<Vec<_>>()
+    }
+
+    pub fn construct_weights(&mut self, periods: i32) {
+        let half_life = self.decay_type.get_half_life().unwrap();
+        let weights_f64 = exp_weights(periods, Some(half_life)).unwrap();
+        let weights = Self::coerce_weights::<T>(&weights_f64);
+        self.weights = weights;
+
+        if self.normalized {
+           self.normalize();
+        }
+    }
+
+    pub fn get_weights(&self) -> &[T] {
+        &self.weights
+    }
+
+    /// Get weight at a specific index without bounds checking
+    #[inline(always)]
+    pub fn get_weight_unchecked(&self, index: usize) -> T {
+        self.weights[index]
+    }
+
+    /// Get a slice of weights without bounds checking
+    pub fn get_slice_unchecked(&self, from: usize, to: usize) -> &[T] {
+        &self.weights[from..to]
+    }
+
+
+    pub fn len(&self) -> usize {
+        self.weights.len()
+    }
+
+    pub fn leading_weight(&self) -> T {
+        self.weights[self.weights.len() - 1]
+    }
+
+    pub fn trailing_weight(&self) -> T {
+        self.weights[0]
+    }
+
 }
 
 #[derive(Debug, Copy, Clone, Deserialize)]
@@ -38,6 +132,13 @@ impl From<(String, f32)> for ExponentialDecayType {
 
 impl ExponentialDecayType {
     // Method to convert any type to half_life
+    pub fn get_normalizer(&self) -> f64 {
+        f64::exp(self.get_decay().unwrap())
+    }
+
+    pub fn get_decay(&self) -> Result<f64, ExpWeightsError> {
+        Ok(std::f64::consts::LN_2 / self.get_half_life()? as f64)
+    }
     pub fn get_alpha(&self) -> Result<f32, ExpWeightsError> {
         match self {
             ExponentialDecayType::Alpha(alpha) => Ok(*alpha),

@@ -1,9 +1,6 @@
-use std::sync::Arc;
-
 use polars::prelude::PolarsResult;
 use polars_arrow::legacy::kernels::rolling::no_nulls::QuantileInterpolOptions;
-use polars_arrow::legacy::prelude::RollingQuantileParams;
-use polars_core::prelude::{NamedFrom, RollingOptionsFixedWindow, Series};
+use polars_core::prelude::{NamedFrom, Series};
 use skiplist::OrderedSkipList;
 
 use crate::rolling::skew::get_window_bounds;

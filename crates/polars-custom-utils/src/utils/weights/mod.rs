@@ -2,11 +2,8 @@ use std::iter;
 use std::ops::{Add, Div, DivAssign, Mul, Sub};
 use ndarray::{s, Array1};
 use num_traits::{NumCast, Zero};
-use pyo3::{pyfunction, PyResult};
 use serde::Deserialize;
 use thiserror::Error;
-
-use crate::Utils;
 
 pub fn coerce_weights<T: NumCast>(weights: &[f64]) -> Vec<T>
 where
@@ -239,7 +236,7 @@ mod tests {
 
     #[test]
     fn test_exp_weights_basic() {
-        let weights = exp_weights(5, Some(2)).unwrap();
+        let weights = exp_weights(5, Some(2.0)).unwrap();
         assert_eq!(weights.len(), 5);
 
         // First weight should be closest to 1.0
@@ -260,12 +257,12 @@ mod tests {
     #[test]
     fn test_exp_weights_invalid_window() {
         assert!(matches!(
-            exp_weights(0, Some(2)),
+            exp_weights(0, Some(2.0)),
             Err(ExpWeightsError::InvalidWindow(0))
         ));
 
         assert!(matches!(
-            exp_weights(-1, Some(2)),
+            exp_weights(-1, Some(2.0)),
             Err(ExpWeightsError::InvalidWindow(-1))
         ));
     }
@@ -273,13 +270,13 @@ mod tests {
     #[test]
     fn test_exp_weights_invalid_half_life() {
         assert!(matches!(
-            exp_weights(5, Some(0)),
-            Err(ExpWeightsError::InvalidHalfLife(0))
+            exp_weights(5, Some(0.0)),
+            Err(ExpWeightsError::InvalidHalfLife(0.0))
         ));
 
         assert!(matches!(
-            exp_weights(5, Some(-1)),
-            Err(ExpWeightsError::InvalidHalfLife(-1))
+            exp_weights(5, Some(-1.0)),
+            Err(ExpWeightsError::InvalidHalfLife(-1.0))
         ));
     }
 }

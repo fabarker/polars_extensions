@@ -60,7 +60,7 @@ pub fn get_window_bounds(
         "left" | "both" => {
             start.iter_mut().for_each(|x| *x -= 1);
         },
-        "left" | "neither" => {
+        "neither" => {
             end.iter_mut().for_each(|x| *x -= 1);
         },
         _ => {},

@@ -1,4 +1,3 @@
-use arrow::array::Array;
 use num_traits::Num;
 use polars_arrow::array::{ArrayRef, PrimitiveArray};
 use polars_arrow::bitmap::{Bitmap, MutableBitmap};

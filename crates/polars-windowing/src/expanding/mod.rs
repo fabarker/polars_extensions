@@ -16,10 +16,9 @@ pub mod variance;
 // Grouped imports
 use std::iter;
 use std::iter::Sum;
-use std::ops::{AddAssign, Div, DivAssign, MulAssign, SubAssign};
+use std::ops::{AddAssign, Div, SubAssign};
 
-use arrow::array::Array;
-use num_traits::{Float, Num, NumCast};
+use num_traits::{Float, NumCast};
 use polars::datatypes::{Float32Type, Float64Type};
 use polars::prelude::PolarsResult;
 use polars_arrow::array::{ArrayRef, PrimitiveArray};
@@ -31,9 +30,7 @@ use polars_core::prelude::ChunkedArray;
 use polars_core::series::Series;
 use polars_custom_utils::utils::weights::coerce_weights;
 use polars_utils::float::IsFloat;
-use polars_utils::index::NullCount;
 
-use crate::rolling::RollingAggWindow;
 use crate::MyArrayExt;
 
 pub(super) struct SumSquaredWindow<'a, T> {

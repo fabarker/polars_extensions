@@ -1,12 +1,12 @@
 use std::fmt::Debug;
 use std::iter;
 use std::iter::Sum;
-use std::ops::{AddAssign, Div, DivAssign, Mul, MulAssign, SubAssign};
+use std::ops::{AddAssign, Div, DivAssign, Mul, SubAssign};
 
-use num_traits::{Float, Num, NumCast};
+use num_traits::{Float, NumCast};
 use polars::datatypes::{Float32Type, Float64Type};
 use polars::prelude::PolarsResult;
-use polars_arrow::array::{Array, ArrayRef, PrimitiveArray};
+use polars_arrow::array::{ArrayRef, PrimitiveArray};
 use polars_arrow::bitmap::{Bitmap, MutableBitmap};
 use polars_arrow::types::NativeType;
 use polars_core::datatypes::DataType::{Float32, Float64};
@@ -15,9 +15,7 @@ use polars_core::prelude::ChunkedArray;
 use polars_core::series::Series;
 use polars_custom_utils::utils::weights::{coerce_weights, ExponentialDecayType, ExponentialWeights};
 use polars_utils::float::IsFloat;
-use polars_utils::index::NullCount;
-use rand_distr::Exp;
-use crate::{ExponentiallyWeighted, MyArrayExt};
+use crate::MyArrayExt;
 
 pub mod cagr;
 pub mod kurtosis;

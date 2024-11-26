@@ -2,23 +2,20 @@ pub mod expanding;
 pub mod expr;
 pub mod rolling;
 
-use std::iter;
 use std::iter::Sum;
-use std::ops::{AddAssign, Div, SubAssign};
+use std::ops::{AddAssign, SubAssign};
 
-use arrow::datatypes::*;
-use num_traits::{Float, NumCast};
+use num_traits::Float;
 use polars::prelude::*;
 use polars_arrow::array::{Array, PrimitiveArray}; // Change this import
 use polars_arrow::bitmap::Bitmap;
 use polars_arrow::legacy::kernels::rolling::no_nulls::QuantileInterpolOptions;
 use polars_arrow::types::NativeType;
-use polars_core::prelude::UInt64Type;
 use polars_custom_utils::utils::weights::ExponentialDecayType;
 use polars_custom_utils::Utils;
 use polars_utils::float::IsFloat;
 use serde::Deserialize;
-
+use polars_custom_utils::utils::ts::ReturnsType;
 use crate::expanding::cagr::expanding_cagr;
 use crate::expanding::ewm::mean::ewm_mean;
 use crate::expanding::ewm::stdev::ewm_std;
@@ -37,12 +34,10 @@ use crate::rolling::cagr::{rolling_cagr, ew_rolling_cagr};
 use crate::rolling::kurtosis::rolling_kurtosis;
 use crate::rolling::mean::{rolling_mean, ew_rolling_mean};
 use crate::rolling::prod::rolling_prod;
-use crate::rolling::quantile::rolling_quantile;
 use crate::rolling::skew::rolling_skew;
 use crate::rolling::stdev::{rolling_std, rolling_ewm_std};
 use crate::rolling::sum::{rolling_sum, ew_rolling_sum};
 use crate::rolling::variance::{rolling_var, ew_rolling_var};
-use crate::rolling::RollingAggWindow;
 
 trait MyArrayExt<T>
 where
@@ -228,7 +223,6 @@ impl<'a> ExponentiallyWeighted<'a> {
 
     pub fn sum(&self) -> PolarsResult<Series> {
         match &self.window_type {
-            WindowType::Expanding(expanding) => panic!("Invalid window type"),
             WindowType::Rolling(rolling) => {
                 ew_rolling_sum(
                     rolling.series,
@@ -238,6 +232,7 @@ impl<'a> ExponentiallyWeighted<'a> {
                     &self.decay_type,
                 )
             },
+            _ => panic!("Invalid window type")
         }
     }
 
@@ -334,7 +329,7 @@ impl<'a> ExponentiallyWeighted<'a> {
         }
     }
 
-    pub fn cagr(&self, returns_type: &str) -> PolarsResult<Series> {
+    pub fn cagr(&self, returns_type: ReturnsType) -> PolarsResult<Series> {
         match &self.window_type {
             WindowType::Expanding(expanding) => {
                 let wts = Utils::exponential_weights(
@@ -454,7 +449,7 @@ impl<'a> Expanding<'a> {
         )
     }
 
-    pub fn cagr(&self, returns_type: &str) -> PolarsResult<Series> {
+    pub fn cagr(&self, returns_type: ReturnsType) -> PolarsResult<Series> {
         expanding_cagr(self.series, self.min_periods, self.weights.clone(), returns_type)
     }
 
@@ -625,7 +620,7 @@ impl<'a> Rolling<'a> {
         rolling_kurtosis(self.series, self.window, self.min_periods, self.center)
     }
 
-    pub fn cagr(&self, returns_type: &str) -> PolarsResult<Series> {
+    pub fn cagr(&self, returns_type: ReturnsType) -> PolarsResult<Series> {
         rolling_cagr(
             self.series,
             self.window,

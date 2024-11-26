@@ -1,7 +1,6 @@
 use std::ops::{Add, Mul, Sub};
 use num_traits::Zero;
 use polars::prelude::series::AsSeries;
-use polars_utils::index::Bounded;
 use super::*;
 
 pub fn ew_rolling_sum(

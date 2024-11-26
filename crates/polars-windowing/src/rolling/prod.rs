@@ -1,11 +1,7 @@
 use std::ops::{Add, Div, Mul, Sub};
 
 use num_traits::One;
-use num_traits::real::Real;
 use polars::prelude::series::AsSeries;
-use polars_core::datatypes::DataType;
-use polars_core::prelude::ChunkApply;
-use polars_core::series::IntoSeries;
 use super::*;
 
 pub fn rolling_prod(

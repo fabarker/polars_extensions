@@ -1,6 +1,4 @@
-use std::ops::{Add, Sub};
-
-use polars::prelude::{PolarsResult, SeriesSealed};
+use polars::prelude::PolarsResult;
 use polars_core::prelude::{RollingOptionsFixedWindow, Series};
 
 use crate::rolling::sum::{ew_rolling_sum, rolling_sum};
@@ -17,7 +15,7 @@ pub fn rolling_cagr_with_opts(
         options.min_periods,
         options.center,
         options.weights,
-        "simple",
+        ReturnsType::Simple,
     )
 }
 
@@ -27,7 +25,7 @@ pub fn ew_rolling_cagr(
     min_periods: usize,
     center: bool,
     decay: &ExponentialDecayType,
-    returns_type: &str,
+    returns_type: ReturnsType,
 ) -> PolarsResult<Series> {
 
     // Convert input returns series to log returns...
@@ -43,7 +41,7 @@ pub fn rolling_cagr(
     min_periods: usize,
     center: bool,
     weights: Option<Vec<f64>>,
-    returns_type: &str,
+    returns_type: ReturnsType,
 ) -> PolarsResult<Series> {
 
     // Convert input returns series to log returns...

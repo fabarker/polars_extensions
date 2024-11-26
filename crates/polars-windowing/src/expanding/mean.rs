@@ -1,7 +1,7 @@
 use std::ops::{Add, Div, Mul, Sub};
 
 use polars::prelude::series::AsSeries;
-use polars_core::datatypes::{DataType, Float32Type, Float64Type};
+use polars_core::datatypes::{Float32Type, Float64Type};
 
 use super::*;
 

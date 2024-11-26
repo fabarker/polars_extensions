@@ -1,10 +1,10 @@
 #![allow(clippy::unused_unit)]
 use polars::prelude::*;
 use polars_custom_utils::utils::weights::ExponentialDecayType;
+use polars_custom_utils::utils::ts::ReturnsType;
 pub use polars_windowing::{
     Expanding, ExpandingKwargs, ExponentiallyWeighted, Rolling, RollingKwargs, WindowParams,
 };
-use pyo3::prelude::*;
 use pyo3_polars::derive::polars_expr;
 
 fn output_mapper(input_fields: &[Field]) -> PolarsResult<Field> {
@@ -18,6 +18,8 @@ pub enum WindowType<'a> {
 }
 
 impl<'a> WindowType<'a> {
+
+    #[warn(dead_code)]
     pub fn sum(&self) -> PolarsResult<Series> {
         match self {
             WindowType::Rolling(r) => r.sum(),
@@ -46,6 +48,7 @@ impl<'a> WindowType<'a> {
         }
     }
 
+    #[warn(dead_code)]
     pub fn skew(&self) -> PolarsResult<Series> {
         match self {
             WindowType::Rolling(r) => r.skew(),
@@ -53,6 +56,7 @@ impl<'a> WindowType<'a> {
         }
     }
 
+    #[warn(dead_code)]
     pub fn kurt(&self) -> PolarsResult<Series> {
         match self {
             WindowType::Rolling(r) => r.kurt(),
@@ -60,10 +64,10 @@ impl<'a> WindowType<'a> {
         }
     }
 
-    pub fn cgr(&self) -> PolarsResult<Series> {
+    pub fn cgr(&self, returns_type: ReturnsType) -> PolarsResult<Series> {
         match self {
-            WindowType::Rolling(r) => r.cagr("simple"),
-            WindowType::Expanding(e) => e.cagr("simple"),
+            WindowType::Rolling(r) => r.cagr(returns_type),
+            WindowType::Expanding(e) => e.cagr(returns_type),
         }
     }
 
@@ -128,14 +132,13 @@ fn initialize_window(inputs: &Series, kwargs: WindowParams) -> PolarsResult<Wind
 #[polars_expr(output_type_func=output_mapper)]
 pub fn windowed_stats(inputs: &[Series], kwargs: WindowParams) -> PolarsResult<Series> {
 
-    dbg!(&inputs);
     let win = initialize_window(&inputs[0], kwargs)?;
     let result = match inputs[1].str_value(0)?.as_ref() {
         "mean" => win.mean(),
         "std" => win.std(),
         "var" => win.var(),
         "prod" => win.prod(),
-        "cgr" => win.cgr(),
+        "cgr" => win.cgr(ReturnsType::from("simple")),
         "min" => win.min(),
         "max" => win.max(),
         "median" => win.median(),
@@ -146,6 +149,7 @@ pub fn windowed_stats(inputs: &[Series], kwargs: WindowParams) -> PolarsResult<S
     result
 }
 
+/*
 fn initialize_window_ewm(
     inputs: &Series,
     kwargs: WindowParams,
@@ -165,9 +169,11 @@ fn initialize_window_ewm(
     }
 }
 
+ */
+
 #[polars_expr(output_type_func=output_mapper)]
 pub fn exponentially_weighted(inputs: &[Series], kwargs: WindowParams) -> PolarsResult<Series> {
-    dbg!(&inputs);
+
     let ewm = initialize_window(&inputs[0], kwargs.clone())?
         .ewm(kwargs.decay.unwrap(), kwargs.bias.unwrap_or(false))?;
     let result = match inputs[1].str_value(0)?.as_ref() {
@@ -175,7 +181,7 @@ pub fn exponentially_weighted(inputs: &[Series], kwargs: WindowParams) -> Polars
         "std" => ewm.std(),
         "var" => ewm.var(),
         "prod" => ewm.prod(),
-        "cgr" => ewm.cagr("simple"),
+        "cgr" => ewm.cagr(ReturnsType::from("simple")),
         other => Err(PolarsError::ComputeError(
             format!("Unknown function: {}", other).into(),
         )),

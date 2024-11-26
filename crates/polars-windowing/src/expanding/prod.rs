@@ -1,6 +1,4 @@
-use std::fmt::Debug;
-use std::ops::{Add, Div, Mul, Sub};
-
+use std::ops::{Add, Mul, Sub};
 use num_traits::One;
 use polars::prelude::series::AsSeries;
 use polars_core::datatypes::{Float32Type, Float64Type};

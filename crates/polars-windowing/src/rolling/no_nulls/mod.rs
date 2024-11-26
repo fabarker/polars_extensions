@@ -2,7 +2,7 @@ use std::fmt::Debug;
 use std::iter;
 use std::ops::{Add, AddAssign, Mul, Sub};
 
-use num_traits::{Num, NumCast, One, Zero};
+use num_traits::{Num, NumCast, One};
 use polars::prelude::PolarsResult;
 use polars_arrow::array::{ArrayRef, PrimitiveArray};
 use polars_arrow::datatypes::ArrowDataType;

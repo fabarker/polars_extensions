@@ -1,19 +1,18 @@
-use std::ops::{Add, Sub};
-
-use polars::prelude::{PolarsResult, SeriesSealed};
+use polars::prelude::{PolarsResult};
 use polars_core::prelude::Series;
-
-use crate::expanding::prod::expanding_prod;
+use polars_custom_utils::utils::ts::ReturnsType;
+use crate::expanding::sum::expanding_sum;
 
 pub fn expanding_cagr(
     input: &Series,
     min_periods: usize,
     weights: Option<Vec<f64>>,
-    return_type: &str,
+    returns_type: ReturnsType,
 ) -> PolarsResult<Series> {
-    let s = &input.as_series().add(1.0);
-    let mut prod = expanding_prod(s, min_periods, weights)?;
-    Ok(prod.sub(1.0))
+
+    let log_rtn = ReturnsType::from(returns_type).to_log(&input)?;
+    let cmrtn = expanding_sum(&log_rtn, min_periods, weights)?;
+    Ok(ReturnsType::log_to_linear(&cmrtn)?)
 }
 
 /*

@@ -1,9 +1,7 @@
 mod window;
 use polars_custom_utils::utils::weights::ExponentialDecayType;
-use polars_custom_utils::Utils;
 pub use polars_custom_utils::*;
 pub use polars_windowing::*;
-use pyo3::prelude::*;
 use pyo3::types::{PyModule, PyModuleMethods};
 use pyo3::{pyfunction, pymodule, wrap_pyfunction, Bound, PyResult};
 use pyo3_polars::PolarsAllocator;

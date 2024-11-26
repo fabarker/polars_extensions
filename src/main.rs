@@ -43,7 +43,7 @@ fn main() -> PolarsResult<()> {
     };
 
     let decay = ExponentialDecayType::HalfLife(126.0);
-    let wts = Utils::exponential_weights(504, &decay, false).unwrap();
+    let wts = Utils::exponential_weights(252, &decay, true).unwrap();
     dbg!(&wts);
 
     let mut chunked = ts
@@ -53,12 +53,11 @@ fn main() -> PolarsResult<()> {
         .collect::<Vec<Option<f64>>>();
     let new_series = Series::new("data".into(), chunked);
     dbg!(&new_series);
-    let s = new_series
-        .shift(20)
-        .rolling(504)
-        .with_weights(Option::from(wts))
-        .cagr();
+
+    let s = new_series.rolling(252).ewm(decay, false).std();
     dbg!(&s);
+    let s1 = new_series.rolling(252).with_weights(Option::from(wts)).var();
+    dbg!(&s1);
 
     Ok(())
 }

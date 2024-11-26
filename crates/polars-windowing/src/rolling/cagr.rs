@@ -3,9 +3,9 @@ use std::ops::{Add, Sub};
 use polars::prelude::{PolarsResult, SeriesSealed};
 use polars_core::prelude::{RollingOptionsFixedWindow, Series};
 
-use crate::rolling::sum::rolling_sum;
+use crate::rolling::sum::{ew_rolling_sum, rolling_sum};
 use polars_custom_utils::utils::ts::ReturnsType;
-
+use polars_custom_utils::utils::weights::ExponentialDecayType;
 
 pub fn rolling_cagr_with_opts(
     input: &Series,
@@ -19,6 +19,21 @@ pub fn rolling_cagr_with_opts(
         options.weights,
         "simple",
     )
+}
+
+pub fn ew_rolling_cagr(
+    input: &Series,
+    window_size: usize,
+    min_periods: usize,
+    center: bool,
+    decay: &ExponentialDecayType,
+    returns_type: &str,
+) -> PolarsResult<Series> {
+
+    // Convert input returns series to log returns...
+    let log_rtn = ReturnsType::from(returns_type).to_log(&input)?;
+    let cmrtn = ew_rolling_sum(&log_rtn, window_size, min_periods, center, decay)?;
+    Ok(ReturnsType::log_to_linear(&cmrtn)?)
 }
 
 

@@ -33,15 +33,15 @@ use crate::expanding::skew::expanding_skew;
 use crate::expanding::stdev::expanding_std;
 use crate::expanding::sum::expanding_sum;
 use crate::expanding::variance::expanding_var;
-use crate::rolling::cagr::rolling_cagr;
+use crate::rolling::cagr::{rolling_cagr, ew_rolling_cagr};
 use crate::rolling::kurtosis::rolling_kurtosis;
-use crate::rolling::mean::rolling_mean;
+use crate::rolling::mean::{rolling_mean, ew_rolling_mean};
 use crate::rolling::prod::rolling_prod;
 use crate::rolling::quantile::rolling_quantile;
 use crate::rolling::skew::rolling_skew;
-use crate::rolling::stdev::rolling_std;
-use crate::rolling::sum::rolling_sum;
-use crate::rolling::variance::rolling_var;
+use crate::rolling::stdev::{rolling_std, rolling_ewm_std};
+use crate::rolling::sum::{rolling_sum, ew_rolling_sum};
+use crate::rolling::variance::{rolling_var, ew_rolling_var};
 use crate::rolling::RollingAggWindow;
 
 trait MyArrayExt<T>
@@ -226,6 +226,21 @@ impl<'a> ExponentiallyWeighted<'a> {
         self
     }
 
+    pub fn sum(&self) -> PolarsResult<Series> {
+        match &self.window_type {
+            WindowType::Expanding(expanding) => panic!("Invalid window type"),
+            WindowType::Rolling(rolling) => {
+                ew_rolling_sum(
+                    rolling.series,
+                    rolling.window,
+                    rolling.min_periods,
+                    rolling.center,
+                    &self.decay_type,
+                )
+            },
+        }
+    }
+
     pub fn mean(&self) -> PolarsResult<Series> {
         match &self.window_type {
             WindowType::Expanding(expanding) => {
@@ -238,15 +253,12 @@ impl<'a> ExponentiallyWeighted<'a> {
                 )
             },
             WindowType::Rolling(rolling) => {
-                let wts =
-                    Utils::exponential_weights(rolling.window as i32, &self.decay_type, false)
-                        .unwrap();
-                rolling_mean(
+                ew_rolling_mean(
                     rolling.series,
                     rolling.window,
                     rolling.min_periods,
                     rolling.center,
-                    Some(wts),
+                    &self.decay_type,
                 )
             },
         }
@@ -263,15 +275,12 @@ impl<'a> ExponentiallyWeighted<'a> {
                 self.bias,
             ),
             WindowType::Rolling(rolling) => {
-                let wts =
-                    Utils::exponential_weights(rolling.window as i32, &self.decay_type, false)
-                        .unwrap();
-                rolling_std(
+                rolling_ewm_std(
                     rolling.series,
                     rolling.window,
                     rolling.min_periods,
                     rolling.center,
-                    Some(wts),
+                    self.decay_type,
                 )
             },
         }
@@ -288,15 +297,12 @@ impl<'a> ExponentiallyWeighted<'a> {
                 self.bias,
             ),
             WindowType::Rolling(rolling) => {
-                let wts =
-                    Utils::exponential_weights(rolling.window as i32, &self.decay_type, false)
-                        .unwrap();
-                rolling_var(
+                ew_rolling_var(
                     rolling.series,
                     rolling.window,
                     rolling.min_periods,
                     rolling.center,
-                    Some(wts),
+                    &self.decay_type,
                 )
             },
         }
@@ -340,15 +346,12 @@ impl<'a> ExponentiallyWeighted<'a> {
                 expanding_cagr(expanding.series, expanding.min_periods, Some(wts), returns_type)
             },
             WindowType::Rolling(rolling) => {
-                let wts =
-                    Utils::exponential_weights(rolling.window as i32, &self.decay_type, false)
-                        .unwrap();
-                rolling_cagr(
+                ew_rolling_cagr(
                     rolling.series,
                     rolling.window,
                     rolling.min_periods,
                     rolling.center,
-                    Some(wts),
+                    &self.decay_type,
                     returns_type
                 )
             },
